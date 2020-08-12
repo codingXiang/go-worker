@@ -126,6 +126,7 @@ type MasterEntity struct {
 type MasterOption struct {
 	IsCluster  bool
 	ETCDConfig clientv3.Config
+	BasePath   string
 }
 
 type Master interface {
@@ -160,7 +161,7 @@ func NewMaster(pool *redis.Pool, namespace string, option *MasterOption) Master 
 	}
 	if option != nil {
 		if option.IsCluster {
-			return NewMasterCluster(master, option.ETCDConfig)
+			return NewMasterCluster(master, option)
 		} else {
 			return master
 		}

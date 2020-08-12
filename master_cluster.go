@@ -14,7 +14,6 @@ import (
 )
 
 const (
-	BASE   = "worker"
 	MASTER = "master"
 	TASK   = "task"
 	LOCK   = "lock"
@@ -36,12 +35,13 @@ type MasterClusterEntity struct {
 }
 
 //NewMasterCluster 建立集群版本 Master Instance
-func NewMasterCluster(base *MasterEntity, config clientv3.Config) Master {
+func NewMasterCluster(base *MasterEntity, option *MasterOption) Master {
+	config := option.ETCDConfig
 	cluster := new(MasterClusterEntity)
 	cluster.MasterEntity = base
 	cluster.key = make(map[string]string)
 	cluster.etcdConfig = config
-	basePath := "/" + BASE + "/" + base.core.Namespace
+	basePath := "/" + option.BasePath + "/" + base.core.Namespace
 	cluster.key[MASTER] = BuildKeyPath(basePath, MASTER)
 	cluster.key[TASK] = BuildKeyPath(basePath, TASK)
 	cluster.key[LOCK] = BuildKeyPath(basePath, LOCK)

@@ -25,6 +25,7 @@ func main() {
 	//create multiple master node with options
 	master := go_worker.NewMaster(redisPool, "demo", &go_worker.MasterOption{
 		IsCluster: true,
+		BasePath:  "worker",
 		ETCDConfig: clientv3.Config{
 			Endpoints:   []string{"localhost:32773", "localhost:32769", "localhost:32772"},
 			DialTimeout: 5 * time.Second,
