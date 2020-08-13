@@ -132,7 +132,7 @@ type MasterOption struct {
 type Master interface {
 	Init() Master
 	GetID() string
-	AddTask(Spec string, JobName string, Args map[string]interface{}) (string, error)
+	AddTask(Spec string, JobName string, Args map[string]interface{}) (*TaskInfo, error)
 	GetEnqueues() map[string]Enqueue
 	GetEnqueue(id string) (Enqueue, error)
 	GetWorkerHeartbeats() ([]*work.WorkerPoolHeartbeat, error)
@@ -180,10 +180,17 @@ func (g *MasterEntity) GetID() string {
 }
 
 //AddTask 加入任務
-func (g *MasterEntity) AddTask(Spec string, JobName string, Args map[string]interface{}) (string, error) {
+func (g *MasterEntity) AddTask(Spec string, JobName string, Args map[string]interface{}) (*TaskInfo, error) {
 	enqueue := NewEnqueue(g.core, Spec, JobName, Args)
 	g.tasks[enqueue.GetID()] = enqueue
-	return enqueue.GetID(), nil
+	info := &TaskInfo{
+		MasterID: g.GetID(),
+		ID:       enqueue.GetID(),
+		Spec:     enqueue.GetSpec(),
+		JobName:  enqueue.GetJobName(),
+		Args:     enqueue.GetArgs(),
+	}
+	return info, nil
 }
 
 func (g *MasterEntity) GetEnqueues() map[string]Enqueue {

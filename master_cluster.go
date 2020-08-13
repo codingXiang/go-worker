@@ -205,11 +205,11 @@ func (g *MasterClusterEntity) handleRetiredMasterTasks(key string) error {
 			if err != nil {
 				return err
 			}
-			id, err := g.AddTask(task.Spec, task.JobName, task.Args)
+			info, err := g.AddTask(task.Spec, task.JobName, task.Args)
 			if err != nil {
 				return err
 			}
-			err = g.ExecTask(id)
+			err = g.ExecTask(info.ID)
 			if err != nil {
 				return err
 			}
@@ -269,27 +269,19 @@ func (g *MasterClusterEntity) WatchTask() error {
 }
 
 //AddTask 新增任務
-func (g *MasterClusterEntity) AddTask(Spec string, JobName string, Args map[string]interface{}) (string, error) {
+func (g *MasterClusterEntity) AddTask(Spec string, JobName string, Args map[string]interface{}) (*TaskInfo, error) {
 	client, err := clientv3.New(g.etcdConfig)
 	if err != nil {
 		panic(err)
 	}
 	defer client.Close()
-	key, err := g.MasterEntity.AddTask(Spec, JobName, Args)
-	job := g.MasterEntity.tasks[key]
-	info := &TaskInfo{
-		MasterID: g.GetID(),
-		ID:       job.GetID(),
-		Spec:     job.GetSpec(),
-		JobName:  job.GetJobName(),
-		Args:     job.GetArgs(),
-	}
+	info, err := g.MasterEntity.AddTask(Spec, JobName, Args)
 	tmp, _ := json.Marshal(info)
-	_, err = client.Put(context.TODO(), g.getTaskPathWithCustomPath(g.GetID(), key), string(tmp))
+	_, err = client.Put(context.TODO(), g.getTaskPathWithCustomPath(g.GetID(), info.ID), string(tmp))
 	if err != nil {
 		return "", err
 	}
-	return key, nil
+	return info, nil
 }
 
 //RemoveTask 移除任務
