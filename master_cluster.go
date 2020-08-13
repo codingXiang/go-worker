@@ -279,7 +279,7 @@ func (g *MasterClusterEntity) AddTask(Spec string, JobName string, Args map[stri
 	tmp, _ := json.Marshal(info)
 	_, err = client.Put(context.TODO(), g.getTaskPathWithCustomPath(g.GetID(), info.ID), string(tmp))
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	return info, nil
 }
