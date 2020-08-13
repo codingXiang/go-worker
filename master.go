@@ -225,12 +225,16 @@ func (g *MasterEntity) GetBusyWorkers() ([]*work.WorkerObservation, error) {
 //啟動排程
 func (g *MasterEntity) ExecTask(id string) error {
 	if task, ok := g.tasks[id]; ok {
-		if id, err := g.cron.AddJob(task.GetSpec(), task); err == nil {
-			task.SetEntryID(id)
+		if task.GetSpec() == "now" {
+			task.Run()
 		} else {
-			return err
+			if id, err := g.cron.AddJob(task.GetSpec(), task); err == nil {
+				task.SetEntryID(id)
+			} else {
+				return err
+			}
+			g.cron.Start()
 		}
-		g.cron.Start()
 		return nil
 	} else {
 		return errors.New("task " + id + " is not exist")
@@ -240,12 +244,15 @@ func (g *MasterEntity) ExecTask(id string) error {
 //移除排程
 func (g *MasterEntity) RemoveTask(id string) error {
 	if task, ok := g.tasks[id]; ok {
-		if EntryID := task.GetEntryID(); EntryID != 0 {
-			g.cron.Remove(EntryID)
-			g.cron.Start()
-		} else {
-			return errors.New("task " + id + " is not execute")
+		if task.GetSpec() != "now" {
+			if EntryID := task.GetEntryID(); EntryID != 0 {
+				g.cron.Remove(EntryID)
+				g.cron.Start()
+			} else {
+				return errors.New("task " + id + " is not execute")
+			}
 		}
+		delete(g.tasks, id)
 		return nil
 	} else {
 		return errors.New("task " + id + " is not exist")
