@@ -7,6 +7,7 @@ import (
 	"github.com/coreos/etcd/clientv3"
 	"github.com/coreos/etcd/clientv3/concurrency"
 	"github.com/gomodule/redigo/redis"
+	"github.com/wendal/errors"
 	"log"
 	"os"
 	"os/signal"
@@ -283,7 +284,24 @@ func (g *MasterClusterEntity) AddTask(Spec string, JobName string, Args map[stri
 	}
 	return info, nil
 }
-
+func (g *MasterClusterEntity) ExecTask(id string) error {
+	if task, ok := g.tasks[id]; ok {
+		if task.GetSpec() == "now" {
+			task.Run()
+			g.RemoveTask(id)
+		} else {
+			if id, err := g.cron.AddJob(task.GetSpec(), task); err == nil {
+				task.SetEntryID(id)
+			} else {
+				return err
+			}
+			g.cron.Start()
+		}
+		return nil
+	} else {
+		return errors.New("task " + id + " is not exist")
+	}
+}
 //RemoveTask 移除任務
 func (g *MasterClusterEntity) RemoveTask(id string) error {
 	client, err := clientv3.New(g.etcdConfig)
