@@ -23,6 +23,7 @@ require (
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/satori/go.uuid v1.2.0
 	github.com/streadway/amqp v1.0.0
+	github.com/wendal/errors v0.0.0-20130201093226-f66c77a7882b
 	github.com/zieckey/etcdsync v0.0.0-20180810020013-cd5b26bc05a1
 	go.etcd.io/etcd v3.3.22+incompatible // indirect
 	go.uber.org/zap v1.15.0 // indirect

@@ -234,6 +234,7 @@ func (g *MasterEntity) ExecTask(id string) error {
 	if task, ok := g.tasks[id]; ok {
 		if task.GetSpec() == "now" {
 			task.Run()
+			g.RemoveTask(id)
 		} else {
 			if id, err := g.cron.AddJob(task.GetSpec(), task); err == nil {
 				task.SetEntryID(id)
