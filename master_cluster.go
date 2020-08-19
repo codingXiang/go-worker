@@ -247,7 +247,7 @@ func (g *MasterClusterEntity) handleRetiredMasterTasks(key string) error {
 	return nil
 }
 
-//WatchMaster 集群監聽任務
+//WatchMaster 集群監聽 Master
 func (g *MasterClusterEntity) WatchMaster() error {
 	client, err := clientv3.New(g.etcdConfig)
 	if err != nil {
@@ -266,6 +266,29 @@ func (g *MasterClusterEntity) WatchMaster() error {
 				break
 			case clientv3.EventTypePut:
 				log.Println("master", key, " was joined!")
+				break
+			}
+		}
+	}()
+	return nil
+}
+
+//WatchTask 集群監聽任務
+func (g *MasterClusterEntity) WatchTask() error {
+	client, err := clientv3.New(g.etcdConfig)
+	if err != nil {
+		return err
+	}
+	channel := client.Watch(context.TODO(), g.getTaskPath(), clientv3.WithPrefix())
+	go func() {
+		defer client.Close()
+		for res := range channel {
+			event := res.Events[0]
+			kv := event.Kv
+			key := strings.ReplaceAll(string(kv.Key), g.getMasterPath()+"/", "")
+			switch event.Type {
+			case clientv3.EventTypeDelete:
+				g.MasterEntity.RemoveTask(key)
 				break
 			}
 		}
