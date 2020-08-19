@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"syscall"
 )
 
 const (
@@ -54,7 +55,7 @@ func NewMasterCluster(base *MasterEntity, option *MasterOption) Master {
 func (g *MasterClusterEntity) Init() Master {
 	go func() {
 		signalChan := make(chan os.Signal, 1)
-		signal.Notify(signalChan, os.Interrupt, os.Kill)
+		signal.Notify(signalChan, os.Interrupt, os.Kill, syscall.SIGTERM)
 		<-signalChan
 		g.retired()
 	}()
