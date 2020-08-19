@@ -34,7 +34,7 @@ func main() {
 	//initialize master settings
 	master.Init()
 	//add task with cron spec
-	task, _ := master.AddTask("now", "send_email", work.Q{"address": "test@example.com", "subject": "hello world", "customer_id": 4})
+	task, _ := master.AddTask("*/3 * * * * *", "send_email", work.Q{"address": "test@example.com", "subject": "hello world", "customer_id": 4})
 	//exec task by id
 	master.ExecTask(task.ID)
 	select {}

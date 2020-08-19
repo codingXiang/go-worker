@@ -3,7 +3,6 @@ package go_worker
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"github.com/coreos/etcd/clientv3"
 	"github.com/coreos/etcd/clientv3/concurrency"
 	"github.com/gomodule/redigo/redis"
@@ -42,12 +41,12 @@ func NewMasterCluster(base *MasterEntity, option *MasterOption) Master {
 	cluster.MasterEntity = base
 	cluster.key = make(map[string]string)
 	cluster.etcdConfig = config
-	basePath := "/" + option.BasePath + "/" + base.core.Namespace
-	cluster.key[MASTER] = BuildKeyPath(basePath, MASTER)
-	cluster.key[TASK] = BuildKeyPath(basePath, TASK)
-	cluster.key[LOCK] = BuildKeyPath(basePath, LOCK)
+	basePath := "/" + option.BasePath
+	cluster.key[MASTER] = BuildKeyPath(basePath, MASTER, base.core.Namespace)
+	cluster.key[TASK] = BuildKeyPath(basePath, TASK, base.core.Namespace)
+	cluster.key[LOCK] = BuildKeyPath(basePath, LOCK, base.core.Namespace)
 	cluster.WatchMaster()
-	cluster.WatchTask()
+	//cluster.WatchTask()
 	return cluster
 }
 
@@ -131,8 +130,29 @@ func (g *MasterClusterEntity) getLockKey(key string) (string, error) {
 	return redis.String(conn.Do("GET", key))
 }
 
+func (g *MasterClusterEntity) checkMasterIsExist() error {
+	client, err := clientv3.New(g.etcdConfig)
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+	resp, err := client.Get(context.TODO(), g.getMasterPath(), clientv3.WithPrefix())
+	if err != nil {
+		return err
+	}
+	if len(resp.Kvs) > 0 {
+		return nil
+	} else {
+		client.Delete(context.TODO(), g.getTaskPath(), clientv3.WithPrefix())
+		return errors.New("")
+	}
+}
+
 //handleRetiredMaster 處理退役的 Master
 func (g *MasterClusterEntity) handleRetiredMaster(id string) error {
+	if err := g.checkMasterIsExist(); err != nil {
+		return err
+	}
 	if id != g.GetID() {
 		client, err := clientv3.New(g.etcdConfig)
 		if err != nil {
@@ -195,7 +215,7 @@ func (g *MasterClusterEntity) handleRetiredMasterTasks(key string) error {
 		return err
 	}
 	defer client.Close()
-	resp, err := client.Get(context.TODO(), g.getTaskPathWithCustomPath(key), clientv3.WithPrefix())
+	resp, err := client.Get(context.TODO(), g.getTaskPath(), clientv3.WithPrefix())
 	if err != nil {
 		return err
 	}
@@ -206,17 +226,19 @@ func (g *MasterClusterEntity) handleRetiredMasterTasks(key string) error {
 			if err != nil {
 				return err
 			}
-			info, err := g.AddTask(task.Spec, task.JobName, task.Args)
-			if err != nil {
-				return err
-			}
-			err = g.ExecTask(info.ID)
-			if err != nil {
-				return err
-			}
-			_, err = client.Delete(context.TODO(), string(kv.Key))
-			if err != nil {
-				return err
+			if task.MasterID == key {
+				info, err := g.AddTask(task.Spec, task.JobName, task.Args)
+				if err != nil {
+					return err
+				}
+				err = g.ExecTask(info.ID)
+				if err != nil {
+					return err
+				}
+				_, err = client.Delete(context.TODO(), string(kv.Key))
+				if err != nil {
+					return err
+				}
 			}
 		}
 	} else {
@@ -251,28 +273,6 @@ func (g *MasterClusterEntity) WatchMaster() error {
 	return nil
 }
 
-//WatchTask 集群監聽任務
-func (g *MasterClusterEntity) WatchTask() error {
-	client, err := clientv3.New(g.etcdConfig)
-	if err != nil {
-		return err
-	}
-	channel := client.Watch(context.TODO(), g.getTaskPathWithID(), clientv3.WithPrefix())
-	go func() {
-		defer client.Close()
-		for res := range channel {
-			if len(res.Events) > 0 {
-				event := res.Events[0]
-				kv := event.Kv
-				key := string(kv.Key)
-				value := string(kv.Value)
-				fmt.Println(event.Type.String() + " - " + key + " : " + value)
-			}
-		}
-	}()
-	return nil
-}
-
 //AddTask 新增任務
 func (g *MasterClusterEntity) AddTask(Spec string, JobName string, Args map[string]interface{}) (*TaskInfo, error) {
 	client, err := clientv3.New(g.etcdConfig)
@@ -282,7 +282,7 @@ func (g *MasterClusterEntity) AddTask(Spec string, JobName string, Args map[stri
 	defer client.Close()
 	info, err := g.MasterEntity.AddTask(Spec, JobName, Args)
 	tmp, _ := json.Marshal(info)
-	_, err = client.Put(context.TODO(), g.getTaskPathWithCustomPath(g.GetID(), info.ID), string(tmp))
+	_, err = client.Put(context.TODO(), g.getTaskPathWithCustomPath(info.ID), string(tmp))
 	if err != nil {
 		return nil, err
 	}
@@ -292,6 +292,7 @@ func (g *MasterClusterEntity) ExecTask(id string) error {
 	if task, ok := g.tasks[id]; ok {
 		if task.GetSpec() == "now" {
 			task.Run()
+			g.RemoveTask(task.GetID())
 		} else {
 			if id, err := g.cron.AddJob(task.GetSpec(), task); err == nil {
 				task.SetEntryID(id)
@@ -305,6 +306,7 @@ func (g *MasterClusterEntity) ExecTask(id string) error {
 		return errors.New("task " + id + " is not exist")
 	}
 }
+
 //RemoveTask 移除任務
 func (g *MasterClusterEntity) RemoveTask(id string) error {
 	client, err := clientv3.New(g.etcdConfig)

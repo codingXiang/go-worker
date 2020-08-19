@@ -35,7 +35,7 @@ func main() {
 		},
 	}
 	//make a worker instance
-	worker := go_worker.NewWorker(10, "ops", redisPool)
+	worker := go_worker.NewWorker(10, "demo", redisPool)
 	//make a CustomJob instance
 	customJob := &CustomJob{}
 	//define job to worker with name, instance and options
