@@ -46,7 +46,7 @@ func NewMasterCluster(base *MasterEntity, option *MasterOption) Master {
 	cluster.key[TASK] = BuildKeyPath(basePath, TASK, base.core.Namespace)
 	cluster.key[LOCK] = BuildKeyPath(basePath, LOCK, base.core.Namespace)
 	cluster.WatchMaster()
-	//cluster.WatchTask()
+	cluster.WatchTask()
 	return cluster
 }
 
