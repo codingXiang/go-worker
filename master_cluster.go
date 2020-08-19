@@ -285,7 +285,7 @@ func (g *MasterClusterEntity) WatchTask() error {
 		for res := range channel {
 			event := res.Events[0]
 			kv := event.Kv
-			key := strings.ReplaceAll(string(kv.Key), g.getMasterPath()+"/", "")
+			key := strings.ReplaceAll(string(kv.Key), g.getTaskPath()+"/", "")
 			switch event.Type {
 			case clientv3.EventTypeDelete:
 				g.MasterEntity.RemoveTask(key)
