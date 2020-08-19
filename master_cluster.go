@@ -214,6 +214,10 @@ func (g *MasterClusterEntity) handleRetiredMasterTasks(key string) error {
 			if err != nil {
 				return err
 			}
+			_, err = client.Delete(context.TODO(), string(kv.Key))
+			if err != nil {
+				return err
+			}
 		}
 	} else {
 		log.Println("not found any tasks")
