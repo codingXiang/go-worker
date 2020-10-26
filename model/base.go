@@ -28,6 +28,15 @@ func NewService(taskName string, config *viper.Viper) Service {
 		config:   config,
 	}
 }
+
+func (g *ServiceEntity) GetTaskName() string {
+	return g.taskName
+}
+
+func (g *ServiceEntity) GetConfig() *viper.Viper {
+	return g.config
+}
+
 func (g *ServiceEntity) Do(job *work.Job) error {
 	return nil
 }
