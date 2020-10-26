@@ -22,9 +22,9 @@ type ServiceEntity struct {
 	config   *viper.Viper
 }
 
-func NewService(config *viper.Viper) Service {
+func NewService(taskName string, config *viper.Viper) Service {
 	return &ServiceEntity{
-		taskName: "tf.delete",
+		taskName: taskName,
 		config:   config,
 	}
 }
