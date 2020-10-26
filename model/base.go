@@ -15,6 +15,8 @@ type JobInfo struct {
 type Service interface {
 	GetRegisterInfo() *JobInfo
 	Do(job *work.Job) error
+	GetTaskName() string
+	GetConfig() *viper.Viper
 }
 
 type ServiceEntity struct {
