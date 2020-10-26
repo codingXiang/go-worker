@@ -9,12 +9,7 @@ import (
 
 //define a custom job
 type CustomJob struct {
-	customerID int64
-	Pool       *work.WorkerPool
-	Cloud      string `json:"cloud"`
-	Area       string `json:"area"`
-	Namespace  string `json:"namespace"`
-	Spec       string `json:"spec"`
+
 }
 
 //custom must to implement `Do(job *work.Job) error` function

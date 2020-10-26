@@ -1,0 +1,32 @@
+syntax = "proto3";
+option go_package = "task";
+import "google/protobuf/struct.proto";
+
+service TaskServer {
+    rpc AddTask(TaskRequest) returns(TaskReply){}
+    rpc RemoveTask(RemoveTaskRequest) returns(RemoveTaskReply){}
+}
+
+message RemoveTaskRequest {
+    string namespace = 1;
+    string id = 2;
+}
+
+message RemoveTaskReply {
+    bool isSuccess = 1;
+}
+
+message TaskRequest {
+    string namespace = 1;
+    string jobName = 2;
+    string spec = 3;
+    google.protobuf.Struct args = 4;
+}
+
+message TaskReply {
+    string masterId = 1;
+    string id = 2;
+    string jobName = 3;
+    string spec = 4;
+    google.protobuf.Struct args = 5;
+}
