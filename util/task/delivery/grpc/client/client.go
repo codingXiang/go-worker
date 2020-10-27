@@ -3,11 +3,11 @@ package client
 import (
 	"context"
 	"encoding/json"
+	task "github.com/codingXiang/go-worker/util/task/delivery/grpc/pb"
 	_struct "github.com/golang/protobuf/ptypes/struct"
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"log"
-	task "rms/util/task/delivery/grpc/pb"
 )
 
 type TaskGRPCClient struct {
