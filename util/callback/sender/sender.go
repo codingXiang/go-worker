@@ -1,4 +1,4 @@
-package callback
+package sender
 
 import (
 	"context"
@@ -16,6 +16,7 @@ const (
 	Callback = "callback"
 )
 
+//此 Service 於 master 實作
 type Service struct {
 	model.Service
 	grpcConn *grpc.ClientConn
@@ -37,7 +38,7 @@ func (g *Service) Do(job *work.Job) error {
 	if err != nil {
 		return err
 	}
-	m := new(model.Callback)
+	m := new(model.CallbackSender)
 	args, _ := json.Marshal(job.Args)
 	err = json.Unmarshal(args, &m)
 	if err != nil {
@@ -47,7 +48,7 @@ func (g *Service) Do(job *work.Job) error {
 	return g.send(m)
 }
 
-func (g *Service) send(m *model.Callback) error {
+func (g *Service) send(m *model.CallbackSender) error {
 	client := task.NewTaskServerClient(g.grpcConn)
 	req := new(task.TaskRequest)
 	req.Namespace = m.Namespace

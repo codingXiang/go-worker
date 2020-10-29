@@ -30,8 +30,12 @@ func (p Status) String() string {
 	}
 }
 
-type Callback struct {
-	Namespace  string                 `json:"namespace"`
+type CallbackSender struct {
+	CallbackReceiver
+	Namespace string `json:"namespace"`
+}
+
+type CallbackReceiver struct {
 	Status     string                 `json:"status"`
 	IsComplete bool                   `json:"isComplete"`
 	Args       map[string]interface{} `json:"args"`
