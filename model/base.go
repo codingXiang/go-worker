@@ -82,23 +82,23 @@ type Service interface {
 }
 
 type ServiceEntity struct {
-	taskName string
-	config   *viper.Viper
+	TaskName string
+	Config   *viper.Viper
 }
 
-func NewService(taskName string, config *viper.Viper) Service {
+func NewService(TaskName string, Config *viper.Viper) *ServiceEntity {
 	return &ServiceEntity{
-		taskName: taskName,
-		config:   config,
+		TaskName: TaskName,
+		Config:   Config,
 	}
 }
 
 func (g *ServiceEntity) GetTaskName() string {
-	return g.taskName
+	return g.TaskName
 }
 
 func (g *ServiceEntity) GetConfig() *viper.Viper {
-	return g.config
+	return g.Config
 }
 
 func (g *ServiceEntity) Do(job *work.Job) error {
@@ -107,7 +107,7 @@ func (g *ServiceEntity) Do(job *work.Job) error {
 
 func (g *ServiceEntity) GetRegisterInfo() *JobInfo {
 	return &JobInfo{
-		Name: g.taskName,
+		Name: g.TaskName,
 		Job:  g,
 	}
 }
