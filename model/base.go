@@ -6,6 +6,37 @@ import (
 	"github.com/spf13/viper"
 )
 
+type Status int
+
+const (
+	Pending Status = iota
+	Running
+	Failed
+	Succeeded
+)
+
+func (p Status) String() string {
+	switch p {
+	case Pending:
+		return "Pending"
+	case Running:
+		return "Running"
+	case Failed:
+		return "Failed"
+	case Succeeded:
+		return "Succeeded"
+	default:
+		return "Unknown"
+	}
+}
+
+type Callback struct {
+	Namespace  string                 `json:"namespace"`
+	Status     string                 `json:"status"`
+	IsComplete bool                   `json:"isComplete"`
+	Args       map[string]interface{} `json:"args"`
+}
+
 type JobInfo struct {
 	Name   string
 	Job    go_worker.Job
