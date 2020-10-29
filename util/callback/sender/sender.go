@@ -1,4 +1,4 @@
-package sender
+package callback_sender
 
 import (
 	"context"
