@@ -16,10 +16,41 @@ const (
 	Callback = "callback"
 )
 
+type Sender struct {
+	grpcConn *grpc.ClientConn
+}
+
+func NewSender(config *viper.Viper) (*Sender, error) {
+	return new(Sender).init(config)
+}
+
+func (s *Sender) init(c *viper.Viper) (*Sender, error) {
+	var err error
+	path := c.GetString("grpc.url") + ":" + c.GetString("grpc.port")
+	s.grpcConn, err = grpc.Dial(path, grpc.WithInsecure())
+	return s, err
+}
+func (s *Sender) Do(in interface{}) error {
+	m, err := new(model.CallbackSender).InterfaceToObject(in)
+	if err != nil {
+		return err
+	}
+	client := task.NewTaskServerClient(s.grpcConn)
+	req := new(task.TaskRequest)
+	req.Namespace = m.Namespace
+	req.JobName = Callback
+	req.Spec = go_worker.Now
+	req.Args = new(_struct.Struct)
+	tmp, _ := json.Marshal(m)
+	req.Args.UnmarshalJSON(tmp)
+	_, err = client.AddTask(context.TODO(), req)
+	return err
+}
+
 //此 Service 於 master 實作
 type Service struct {
 	model.Service
-	grpcConn *grpc.ClientConn
+	sender *Sender
 }
 
 func NewService(config *viper.Viper) model.Service {
@@ -27,10 +58,12 @@ func NewService(config *viper.Viper) model.Service {
 }
 
 func (g *Service) init(c *viper.Viper) error {
-	var err error
-	path := c.GetString("grpc.url") + ":" + c.GetString("grpc.port")
-	g.grpcConn, err = grpc.Dial(path, grpc.WithInsecure())
-	return err
+	if s, err := NewSender(c); err != nil {
+		return err
+	} else {
+		g.sender = s
+		return nil
+	}
 }
 
 func (g *Service) Do(job *work.Job) error {
@@ -44,19 +77,5 @@ func (g *Service) Do(job *work.Job) error {
 	if err != nil {
 		return err
 	}
-
-	return g.send(m)
-}
-
-func (g *Service) send(m *model.CallbackSender) error {
-	client := task.NewTaskServerClient(g.grpcConn)
-	req := new(task.TaskRequest)
-	req.Namespace = m.Namespace
-	req.JobName = Callback
-	req.Spec = go_worker.Now
-	req.Args = new(_struct.Struct)
-	tmp, _ := json.Marshal(m)
-	req.Args.UnmarshalJSON(tmp)
-	_, err := client.AddTask(context.TODO(), req)
-	return err
+	return g.sender.Do(job.Args)
 }

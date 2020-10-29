@@ -1,6 +1,7 @@
 package model
 
 import (
+	"encoding/json"
 	go_worker "github.com/codingXiang/go-worker"
 	"github.com/gocraft/work"
 	"github.com/spf13/viper"
@@ -35,10 +36,36 @@ type CallbackSender struct {
 	Namespace string `json:"namespace"`
 }
 
+func (s *CallbackSender) InterfaceToObject(in interface{}) (*CallbackSender, error) {
+	var err error
+	args, err := json.Marshal(in)
+	if err != nil {
+		return nil, err
+	}
+	err = json.Unmarshal(args, &s)
+	if err != nil {
+		return nil, err
+	}
+	return s, nil
+}
+
 type CallbackReceiver struct {
 	Status     string                 `json:"status"`
 	IsComplete bool                   `json:"isComplete"`
 	Args       map[string]interface{} `json:"args"`
+}
+
+func (s *CallbackReceiver) InterfaceToObject(in interface{}) (*CallbackReceiver, error) {
+	var err error
+	args, err := json.Marshal(in)
+	if err != nil {
+		return nil, err
+	}
+	err = json.Unmarshal(args, &s)
+	if err != nil {
+		return nil, err
+	}
+	return s, nil
 }
 
 type JobInfo struct {
