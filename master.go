@@ -10,6 +10,10 @@ import (
 	"os"
 )
 
+const (
+	Now = "now"
+)
+
 //EnqueueEntity 實例
 type EnqueueEntity struct {
 	ID      string                 `json:"id"`
@@ -232,7 +236,7 @@ func (g *MasterEntity) GetBusyWorkers() ([]*work.WorkerObservation, error) {
 //啟動排程
 func (g *MasterEntity) ExecTask(id string) error {
 	if task, ok := g.tasks[id]; ok {
-		if task.GetSpec() == "now" {
+		if task.GetSpec() == Now {
 			task.Run()
 		} else {
 			if id, err := g.cron.AddJob(task.GetSpec(), task); err == nil {
@@ -251,7 +255,7 @@ func (g *MasterEntity) ExecTask(id string) error {
 //移除排程
 func (g *MasterEntity) RemoveTask(id string) error {
 	if task, ok := g.tasks[id]; ok {
-		if task.GetSpec() != "now" {
+		if task.GetSpec() != Now {
 			if EntryID := task.GetEntryID(); EntryID != 0 {
 				g.cron.Remove(EntryID)
 				g.cron.Start()
