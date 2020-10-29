@@ -7,6 +7,10 @@ import (
 	"github.com/spf13/viper"
 )
 
+const (
+	Callback = "callback"
+)
+
 //此 Service 於 master 實作
 type Service struct {
 	model.Service
@@ -14,7 +18,7 @@ type Service struct {
 }
 
 func NewService(config *viper.Viper) model.Service {
-	return model.NewService("callback", config)
+	return model.NewService(Callback, config)
 }
 
 func (g *Service) Do(job *work.Job) error {
