@@ -13,11 +13,11 @@ const (
 
 //此 Service 於 master 實作
 type Service struct {
-	model.Service
+	*model.ServiceEntity
 	handler func(receiver *model.CallbackReceiver) error
 }
 
-func NewService(config *viper.Viper, handler func(receiver *model.CallbackReceiver) error) model.Service {
+func NewService(config *viper.Viper, handler func(receiver *model.CallbackReceiver) error) *Service {
 	return new(Service).SetHandler(handler).Init(config)
 }
 
@@ -26,8 +26,8 @@ func (g *Service) SetHandler(h func(receiver *model.CallbackReceiver) error) *Se
 	return g
 }
 
-func (g *Service) Init(config *viper.Viper) model.Service {
-	g.Service = model.NewService(Callback, config)
+func (g *Service) Init(config *viper.Viper) *Service {
+	g.ServiceEntity = model.NewService(Callback, config)
 	return g
 }
 
@@ -39,4 +39,11 @@ func (g *Service) Do(job *work.Job) error {
 		return err
 	}
 	return g.handler(m)
+}
+
+func (g *Service) GetRegisterInfo() *model.JobInfo {
+	return &model.JobInfo{
+		Name: g.GetTaskName(),
+		Job:  g,
+	}
 }
