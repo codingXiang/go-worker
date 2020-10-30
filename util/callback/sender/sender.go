@@ -38,7 +38,7 @@ func (s *Sender) Do(in interface{}) error {
 	client := task.NewTaskServerClient(s.grpcConn)
 	req := new(task.TaskRequest)
 	req.Namespace = m.Namespace
-	req.JobName = Callback
+	req.JobName = m.Identity + "." + Callback
 	req.Spec = go_worker.Now
 	req.Args = new(_struct.Struct)
 	tmp, _ := json.Marshal(m)

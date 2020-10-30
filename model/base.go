@@ -34,6 +34,7 @@ func (p Status) String() string {
 type CallbackSender struct {
 	CallbackReceiver
 	Namespace string `json:"namespace"`
+	Identity  string `json:"identity"`
 }
 
 func (s *CallbackSender) InterfaceToObject(in interface{}) (*CallbackSender, error) {
@@ -50,8 +51,11 @@ func (s *CallbackSender) InterfaceToObject(in interface{}) (*CallbackSender, err
 }
 
 type CallbackReceiver struct {
+	IdentityID string                 `json:"identityId"`
 	Status     string                 `json:"status"`
 	IsComplete bool                   `json:"isComplete"`
+	Body       string                 `json:"body"`
+	ErrMsg     string                 `json:"errMsg"`
 	Args       map[string]interface{} `json:"args"`
 }
 
