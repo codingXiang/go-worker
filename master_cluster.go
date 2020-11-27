@@ -99,11 +99,16 @@ func (g *MasterClusterEntity) getTaskPathWithCustomPath(path ...string) string {
 //register 註冊 Master 節點
 func (g *MasterClusterEntity) register() error {
 	//设置租约时间
-	resp, err := g.client.Grant(context.Background(), 3)
+	resp, err := g.client.Grant(context.Background(), 5)
 	if err != nil {
 		return err
 	}
 	_, err = g.client.Put(context.Background(), g.getMasterPathWithID(), g.GetID(), clientv3.WithLease(resp.ID))
+	//设置续租 定期发送需求请求
+	_, err = g.client.KeepAlive(context.Background(), resp.ID)
+	if err != nil {
+		return err
+	}
 	return err
 }
 
@@ -246,7 +251,7 @@ func (g *MasterClusterEntity) handleRetiredMasterTasks(key string) error {
 }
 
 //WatchMaster 集群監聽 Master
-func (g *MasterClusterEntity) WatchMaster() error {
+func (g *MasterClusterEntity) WatchMaster() {
 	rch := g.client.Watch(context.Background(), g.getMasterPath(), clientv3.WithPrefix())
 	log.Printf("watching master prefix: %s now...", g.getMasterPath())
 	for wresp := range rch {
@@ -261,12 +266,11 @@ func (g *MasterClusterEntity) WatchMaster() error {
 			}
 		}
 	}
-
-	return nil
+	log.Println("stop watch master ", g.getMasterPath())
 }
 
 //WatchTask 集群監聽任務
-func (g *MasterClusterEntity) WatchTask() error {
+func (g *MasterClusterEntity) WatchTask() {
 	taskPath := g.getTaskPath()
 	rch := g.client.Watch(context.Background(), taskPath, clientv3.WithPrefix())
 	log.Printf("watching task prefix: %s now...", taskPath)
@@ -280,7 +284,8 @@ func (g *MasterClusterEntity) WatchTask() error {
 			}
 		}
 	}
-	return nil
+	log.Println("stop watch task ", taskPath)
+
 }
 
 //AddTask 新增任務
@@ -289,13 +294,20 @@ func (g *MasterClusterEntity) AddTask(Spec string, JobName string, Args map[stri
 	resp, err := g.client.Grant(context.Background(), 5)
 	info, err := g.MasterEntity.AddTask(Spec, JobName, Args)
 	tmp, _ := json.Marshal(info)
-	_, err = g.client.Put(context.TODO(), g.getTaskPathWithCustomPath(info.ID), string(tmp), clientv3.WithLease(resp.ID))
+	_, err = g.client.Put(context.Background(), g.getTaskPathWithCustomPath(info.ID), string(tmp), clientv3.WithLease(resp.ID))
+	if err != nil {
+		return nil, err
+	}
+	//设置续租 定期发送需求请求
+	_, err = g.client.KeepAlive(context.Background(), resp.ID)
 	if err != nil {
 		return nil, err
 	}
 	return info, nil
 }
 func (g *MasterClusterEntity) ExecTask(id string) error {
+	g.lock.Lock()
+	defer g.lock.Unlock()
 	if task, ok := g.tasks[id]; ok {
 		if task.GetSpec() == "now" {
 			task.Run()
@@ -316,6 +328,8 @@ func (g *MasterClusterEntity) ExecTask(id string) error {
 
 //RemoveTask 移除任務
 func (g *MasterClusterEntity) RemoveTask(id string) error {
+	g.lock.Lock()
+	defer g.lock.Unlock()
 	if _, err := g.client.Delete(context.TODO(), g.getTaskPathWithCustomPath(id)); err == nil {
 		return g.MasterEntity.RemoveTask(id)
 	} else {
