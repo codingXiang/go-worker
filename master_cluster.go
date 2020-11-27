@@ -5,10 +5,12 @@ import (
 	"encoding/json"
 	"github.com/coreos/etcd/clientv3"
 	"github.com/coreos/etcd/clientv3/concurrency"
+	"github.com/coreos/etcd/mvcc/mvccpb"
 	"github.com/gomodule/redigo/redis"
 	"github.com/wendal/errors"
 	"log"
 	"strings"
+	"sync"
 )
 
 const (
@@ -36,6 +38,7 @@ type MasterClusterEntity struct {
 	key        map[string]string
 	etcdConfig clientv3.Config
 	client     *clientv3.Client
+	lock       sync.Mutex
 }
 
 //NewMasterCluster 建立集群版本 Master Instance
@@ -73,6 +76,7 @@ func (g *MasterClusterEntity) Init() Master {
 		return nil
 	}
 }
+
 func (g *MasterClusterEntity) getMasterPath() string {
 	return g.key[MASTER]
 }
@@ -243,40 +247,39 @@ func (g *MasterClusterEntity) handleRetiredMasterTasks(key string) error {
 
 //WatchMaster 集群監聽 Master
 func (g *MasterClusterEntity) WatchMaster() error {
-	channel := g.client.Watch(context.TODO(), g.getMasterPath(), clientv3.WithPrefix())
-	go func() {
-		for res := range channel {
-			event := res.Events[0]
-			kv := event.Kv
+	rch := g.client.Watch(context.Background(), g.getMasterPath(), clientv3.WithPrefix())
+	log.Printf("watching master prefix: %s now...", g.getMasterPath())
+	for wresp := range rch {
+		for _, ev := range wresp.Events {
+			kv := ev.Kv
 			key := strings.ReplaceAll(string(kv.Key), g.getMasterPath()+"/", "")
-			switch event.Type {
-			case clientv3.EventTypeDelete:
+			switch ev.Type {
+			case mvccpb.PUT: //修改或者新增
 				g.handleRetiredMaster(key)
-				break
-			case clientv3.EventTypePut:
-				log.Println("master", key, " was joined!")
-				break
+			case mvccpb.DELETE: //删除
+				log.Println("master ", key, " was joined!")
 			}
 		}
-	}()
+	}
+
 	return nil
 }
 
 //WatchTask 集群監聽任務
 func (g *MasterClusterEntity) WatchTask() error {
-	channel := g.client.Watch(context.TODO(), g.getTaskPath(), clientv3.WithPrefix())
-	go func() {
-		for res := range channel {
-			event := res.Events[0]
-			kv := event.Kv
-			key := strings.ReplaceAll(string(kv.Key), g.getTaskPath()+"/", "")
-			switch event.Type {
-			case clientv3.EventTypeDelete:
+	taskPath := g.getTaskPath()
+	rch := g.client.Watch(context.Background(), taskPath, clientv3.WithPrefix())
+	log.Printf("watching task prefix: %s now...", taskPath)
+	for wresp := range rch {
+		for _, ev := range wresp.Events {
+			kv := ev.Kv
+			key := strings.ReplaceAll(string(kv.Key), taskPath+"/", "")
+			switch ev.Type {
+			case mvccpb.DELETE: //删除
 				g.MasterEntity.RemoveTask(key)
-				break
 			}
 		}
-	}()
+	}
 	return nil
 }
 
