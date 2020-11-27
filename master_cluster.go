@@ -17,6 +17,12 @@ const (
 	LOCK   = "lock"
 )
 
+type ETCDAuth struct {
+	Endpoints []string
+	Username  string
+	Password  string
+}
+
 type TaskInfo struct {
 	MasterID string                 `json:"masterId"`
 	ID       string                 `json:"id"`
@@ -43,6 +49,11 @@ func NewMasterCluster(base *MasterEntity, option *MasterOption) Master {
 	cluster.key[MASTER] = BuildKeyPath(basePath, MASTER, base.core.Namespace)
 	cluster.key[TASK] = BuildKeyPath(basePath, TASK, base.core.Namespace)
 	cluster.key[LOCK] = BuildKeyPath(basePath, LOCK, base.core.Namespace)
+	if client, err := clientv3.New(cluster.etcdConfig); err == nil {
+		cluster.client = client
+	} else {
+		log.Fatal("etcd client create failed, rease is ", err.Error())
+	}
 	cluster.WatchMaster()
 	cluster.WatchTask()
 	return cluster
