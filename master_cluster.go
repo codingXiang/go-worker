@@ -27,9 +27,9 @@ type TaskInfo struct {
 
 type MasterClusterEntity struct {
 	*MasterEntity
-	key map[string]string
-
+	key        map[string]string
 	etcdConfig clientv3.Config
+	client     *clientv3.Client
 }
 
 //NewMasterCluster 建立集群版本 Master Instance
@@ -83,14 +83,12 @@ func (g *MasterClusterEntity) getTaskPathWithCustomPath(path ...string) string {
 
 //register 註冊 Master 節點
 func (g *MasterClusterEntity) register() error {
-	client, err := clientv3.New(g.etcdConfig)
 	//设置租约时间
-	resp, err := client.Grant(context.Background(), 3)
+	resp, err := g.client.Grant(context.Background(), 3)
 	if err != nil {
 		return err
 	}
-	defer client.Close()
-	_, err = client.Put(context.Background(), g.getMasterPathWithID(), g.GetID(), clientv3.WithLease(resp.ID))
+	_, err = g.client.Put(context.Background(), g.getMasterPathWithID(), g.GetID(), clientv3.WithLease(resp.ID))
 	return err
 }
 
@@ -131,19 +129,14 @@ func (g *MasterClusterEntity) getLockKey(key string) (string, error) {
 }
 
 func (g *MasterClusterEntity) checkMasterIsExist() error {
-	client, err := clientv3.New(g.etcdConfig)
-	if err != nil {
-		return err
-	}
-	defer client.Close()
-	resp, err := client.Get(context.TODO(), g.getMasterPath(), clientv3.WithPrefix())
+	resp, err := g.client.Get(context.TODO(), g.getMasterPath(), clientv3.WithPrefix())
 	if err != nil {
 		return err
 	}
 	if len(resp.Kvs) > 0 {
 		return nil
 	} else {
-		client.Delete(context.TODO(), g.getTaskPath(), clientv3.WithPrefix())
+		g.client.Delete(context.TODO(), g.getTaskPath(), clientv3.WithPrefix())
 		return errors.New("")
 	}
 }
@@ -154,17 +147,12 @@ func (g *MasterClusterEntity) handleRetiredMaster(id string) error {
 		return err
 	}
 	if id != g.GetID() {
-		client, err := clientv3.New(g.etcdConfig)
-		if err != nil {
-			return err
-		}
-		defer client.Close()
 		var handleTask = false
 		log.Println("master", id, " was retired")
 
 		key := g.key[LOCK] + id
 		ctx := context.TODO()
-		s, err := concurrency.NewSession(client)
+		s, err := concurrency.NewSession(g.client)
 		if err != nil {
 			log.Fatal(err)
 			return err
@@ -210,12 +198,7 @@ func (g *MasterClusterEntity) handleRetiredMaster(id string) error {
 
 //handleRetiredMasterTasks 接收處理退役 master 的任務
 func (g *MasterClusterEntity) handleRetiredMasterTasks(key string) error {
-	client, err := clientv3.New(g.etcdConfig)
-	if err != nil {
-		return err
-	}
-	defer client.Close()
-	resp, err := client.Get(context.TODO(), g.getTaskPath(), clientv3.WithPrefix())
+	resp, err := g.client.Get(context.TODO(), g.getTaskPath(), clientv3.WithPrefix())
 	if err != nil {
 		return err
 	}
@@ -235,7 +218,7 @@ func (g *MasterClusterEntity) handleRetiredMasterTasks(key string) error {
 				if err != nil {
 					return err
 				}
-				_, err = client.Delete(context.TODO(), string(kv.Key))
+				_, err = g.client.Delete(context.TODO(), string(kv.Key))
 				if err != nil {
 					return err
 				}
@@ -249,13 +232,8 @@ func (g *MasterClusterEntity) handleRetiredMasterTasks(key string) error {
 
 //WatchMaster 集群監聽 Master
 func (g *MasterClusterEntity) WatchMaster() error {
-	client, err := clientv3.New(g.etcdConfig)
-	if err != nil {
-		return err
-	}
-	channel := client.Watch(context.TODO(), g.getMasterPath(), clientv3.WithPrefix())
+	channel := g.client.Watch(context.TODO(), g.getMasterPath(), clientv3.WithPrefix())
 	go func() {
-		defer client.Close()
 		for res := range channel {
 			event := res.Events[0]
 			kv := event.Kv
@@ -275,13 +253,8 @@ func (g *MasterClusterEntity) WatchMaster() error {
 
 //WatchTask 集群監聽任務
 func (g *MasterClusterEntity) WatchTask() error {
-	client, err := clientv3.New(g.etcdConfig)
-	if err != nil {
-		return err
-	}
-	channel := client.Watch(context.TODO(), g.getTaskPath(), clientv3.WithPrefix())
+	channel := g.client.Watch(context.TODO(), g.getTaskPath(), clientv3.WithPrefix())
 	go func() {
-		defer client.Close()
 		for res := range channel {
 			event := res.Events[0]
 			kv := event.Kv
@@ -298,16 +271,11 @@ func (g *MasterClusterEntity) WatchTask() error {
 
 //AddTask 新增任務
 func (g *MasterClusterEntity) AddTask(Spec string, JobName string, Args map[string]interface{}) (*TaskInfo, error) {
-	client, err := clientv3.New(g.etcdConfig)
-	if err != nil {
-		panic(err)
-	}
 	//设置租约时间
-	resp, err := client.Grant(context.Background(), 5)
-	defer client.Close()
+	resp, err := g.client.Grant(context.Background(), 5)
 	info, err := g.MasterEntity.AddTask(Spec, JobName, Args)
 	tmp, _ := json.Marshal(info)
-	_, err = client.Put(context.TODO(), g.getTaskPathWithCustomPath(info.ID), string(tmp), clientv3.WithLease(resp.ID))
+	_, err = g.client.Put(context.TODO(), g.getTaskPathWithCustomPath(info.ID), string(tmp), clientv3.WithLease(resp.ID))
 	if err != nil {
 		return nil, err
 	}
@@ -334,12 +302,7 @@ func (g *MasterClusterEntity) ExecTask(id string) error {
 
 //RemoveTask 移除任務
 func (g *MasterClusterEntity) RemoveTask(id string) error {
-	client, err := clientv3.New(g.etcdConfig)
-	if err != nil {
-		return err
-	}
-	defer client.Close()
-	if _, err := client.Delete(context.TODO(), g.getTaskPathWithCustomPath(id)); err == nil {
+	if _, err := g.client.Delete(context.TODO(), g.getTaskPathWithCustomPath(id)); err == nil {
 		return g.MasterEntity.RemoveTask(id)
 	} else {
 		return err
