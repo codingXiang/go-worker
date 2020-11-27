@@ -8,10 +8,7 @@ import (
 	"github.com/gomodule/redigo/redis"
 	"github.com/wendal/errors"
 	"log"
-	"os"
-	"os/signal"
 	"strings"
-	"syscall"
 )
 
 const (
@@ -53,12 +50,12 @@ func NewMasterCluster(base *MasterEntity, option *MasterOption) Master {
 
 //Init 初始化
 func (g *MasterClusterEntity) Init() Master {
-	go func() {
-		signalChan := make(chan os.Signal, 1)
-		signal.Notify(signalChan, os.Interrupt, os.Kill, syscall.SIGTERM)
-		<-signalChan
-		g.retired()
-	}()
+	//go func() {
+	//	signalChan := make(chan os.Signal, 1)
+	//	signal.Notify(signalChan, os.Interrupt, os.Kill, syscall.SIGTERM)
+	//	<-signalChan
+	//	g.retired()
+	//}()
 	if err := g.register(); err == nil {
 		return g
 	} else {
@@ -87,28 +84,30 @@ func (g *MasterClusterEntity) getTaskPathWithCustomPath(path ...string) string {
 //register 註冊 Master 節點
 func (g *MasterClusterEntity) register() error {
 	client, err := clientv3.New(g.etcdConfig)
+	//设置租约时间
+	resp, err := client.Grant(context.Background(), 3)
 	if err != nil {
 		return err
 	}
 	defer client.Close()
-	_, err = client.Put(context.Background(), g.getMasterPathWithID(), g.GetID())
+	_, err = client.Put(context.Background(), g.getMasterPathWithID(), g.GetID(), clientv3.WithLease(resp.ID))
 	return err
 }
 
-//retired 節點退役
-func (g *MasterClusterEntity) retired() error {
-	defer g.cron.Stop()
-	client, err := clientv3.New(g.etcdConfig)
-	if err != nil {
-		return err
-	}
-	defer client.Close()
-	_, err = client.Delete(context.Background(), g.getMasterPathWithID())
-	if err != nil {
-		return err
-	}
-	return nil
-}
+////retired 節點退役
+//func (g *MasterClusterEntity) retired() error {
+//	defer g.cron.Stop()
+//	client, err := clientv3.New(g.etcdConfig)
+//	if err != nil {
+//		return err
+//	}
+//	defer client.Close()
+//	_, err = client.Delete(context.Background(), g.getMasterPathWithID())
+//	if err != nil {
+//		return err
+//	}
+//	return nil
+//}
 
 //setLockKey 設定鎖定的 key
 func (g *MasterClusterEntity) setLockKey(key string) error {
@@ -303,10 +302,12 @@ func (g *MasterClusterEntity) AddTask(Spec string, JobName string, Args map[stri
 	if err != nil {
 		panic(err)
 	}
+	//设置租约时间
+	resp, err := client.Grant(context.Background(), 5)
 	defer client.Close()
 	info, err := g.MasterEntity.AddTask(Spec, JobName, Args)
 	tmp, _ := json.Marshal(info)
-	_, err = client.Put(context.TODO(), g.getTaskPathWithCustomPath(info.ID), string(tmp))
+	_, err = client.Put(context.TODO(), g.getTaskPathWithCustomPath(info.ID), string(tmp), clientv3.WithLease(resp.ID))
 	if err != nil {
 		return nil, err
 	}
