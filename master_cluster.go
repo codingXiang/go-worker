@@ -55,10 +55,10 @@ func NewMasterCluster(base *MasterEntity, option *MasterOption) Master {
 	if client, err := clientv3.New(cluster.etcdConfig); err == nil {
 		cluster.client = client
 	} else {
-		log.Fatal("etcd client create failed, rease is ", err.Error())
+		log.Fatal("etcd client create failed, reason is ", err.Error())
 	}
-	cluster.WatchMaster()
-	cluster.WatchTask()
+	go cluster.WatchMaster()
+	go cluster.WatchTask()
 	return cluster
 }
 
