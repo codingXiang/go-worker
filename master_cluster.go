@@ -10,7 +10,6 @@ import (
 	"github.com/gomodule/redigo/redis"
 	uuid "github.com/satori/go.uuid"
 	"github.com/wendal/errors"
-	"google.golang.org/grpc/encoding"
 	"gopkg.in/mgo.v2/bson"
 	"log"
 	"strings"
@@ -315,7 +314,6 @@ func (g *MasterClusterEntity) AddTask(Spec string, JobName string, Args map[stri
 	//设置租约时间
 	resp, err := g.client.Grant(context.Background(), 5)
 	tagId := uuid.NewV4().String()
-	Args[encoding.Identity] = tagId
 	info, err := g.MasterEntity.AddTask(Spec, JobName, Args)
 	tmp, _ := json.Marshal(info)
 	_, err = g.client.Put(context.Background(), g.getTaskPathWithCustomPath(info.ID), string(tmp), clientv3.WithLease(resp.ID))
@@ -329,10 +327,9 @@ func (g *MasterClusterEntity) AddTask(Spec string, JobName string, Args map[stri
 	}
 
 	return info, g.mongoClient.C(info.JobName).Insert(mongo.NewRawData(info.ID, bson.M{
-		NAMESPACE:         g.namespace,
-		JOB_NAME:          JobName,
-		encoding.Identity: tagId,
-		STATUS:            STATUS_PENDING,
+		NAMESPACE: g.namespace,
+		JOB_NAME:  JobName,
+		STATUS:    STATUS_PENDING,
 	}, info))
 }
 func (g *MasterClusterEntity) ExecTask(id string) error {
@@ -346,10 +343,9 @@ func (g *MasterClusterEntity) ExecTask(id string) error {
 			}, bson.M{
 				UPDATE: bson.M{
 					mongo.TAG: bson.M{
-						NAMESPACE:         g.namespace,
-						JOB_NAME:          task.GetJobName(),
-						encoding.Identity: task.GetArgs()[encoding.Identity],
-						STATUS:            STATUS_RUNNING,
+						NAMESPACE: g.namespace,
+						JOB_NAME:  task.GetJobName(),
+						STATUS:    STATUS_RUNNING,
 					},
 				},
 			})

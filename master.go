@@ -8,6 +8,7 @@ import (
 	"github.com/gomodule/redigo/redis"
 	cronV3 "github.com/robfig/cron/v3"
 	uuid "github.com/satori/go.uuid"
+	"google.golang.org/grpc/encoding"
 	"os"
 )
 
@@ -191,12 +192,14 @@ func (g *MasterEntity) GetID() string {
 func (g *MasterEntity) AddTask(Spec string, JobName string, Args map[string]interface{}) (*TaskInfo, error) {
 	enqueue := NewEnqueue(g.core, Spec, JobName, Args)
 	g.tasks[enqueue.GetID()] = enqueue
+	args := enqueue.GetArgs()
+	args[encoding.Identity] = enqueue.GetID()
 	info := &TaskInfo{
 		MasterID: g.GetID(),
 		ID:       enqueue.GetID(),
 		Spec:     enqueue.GetSpec(),
 		JobName:  enqueue.GetJobName(),
-		Args:     enqueue.GetArgs(),
+		Args:     args,
 	}
 	return info, nil
 }
