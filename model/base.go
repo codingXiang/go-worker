@@ -2,9 +2,11 @@ package model
 
 import (
 	"encoding/json"
+	"github.com/codingXiang/go-orm/v2/mongo"
 	go_worker "github.com/codingXiang/go-worker"
 	"github.com/gocraft/work"
 	"github.com/spf13/viper"
+	"gopkg.in/mgo.v2/bson"
 )
 
 type Status int
@@ -78,23 +80,53 @@ type JobInfo struct {
 	Option *work.JobOptions
 }
 
+type BaseJobData struct {
+	Identity string `json:"identity"`
+}
+
 type Service interface {
 	GetRegisterInfo() *JobInfo
 	Do(job *work.Job) error
 	GetTaskName() string
 	GetConfig() *viper.Viper
+	Callback(err error) error
 }
 
 type ServiceEntity struct {
-	TaskName string
-	Config   *viper.Viper
+	TaskName    string
+	Config      *viper.Viper
+	mongoClient *mongo.Client
 }
 
 func NewService(TaskName string, Config *viper.Viper) *ServiceEntity {
 	return &ServiceEntity{
-		TaskName: TaskName,
-		Config:   Config,
+		TaskName:    TaskName,
+		Config:      Config,
+		mongoClient: mongo.New(Config),
 	}
+}
+
+func (g *ServiceEntity) Callback(identity string, err error) error {
+	status := go_worker.STATUS_COMPLETE
+	if err != nil {
+		status = go_worker.STATUS_FAILED
+	}
+	_, err1 := g.mongoClient.C(g.GetTaskName()).Update(bson.M{
+		mongo.IDENTITY: identity,
+	}, bson.M{
+		go_worker.UPDATE: bson.M{
+			mongo.TAG: bson.M{
+				go_worker.STATUS: status,
+			}, "fail_reason": err.Error(),
+		},
+	})
+	if err != nil {
+		return err
+	}
+	if err1 != nil {
+		return err1
+	}
+	return nil
 }
 
 func (g *ServiceEntity) GetTaskName() string {
