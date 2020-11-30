@@ -90,7 +90,6 @@ type Service interface {
 	GetTaskName() string
 	GetConfig() *viper.Viper
 	GetMongoClient() *mongo.Client
-	Callback(identity string, err error) error
 }
 
 type ServiceEntity struct {
