@@ -8,7 +8,6 @@ import (
 	"github.com/coreos/etcd/clientv3/concurrency"
 	"github.com/coreos/etcd/mvcc/mvccpb"
 	"github.com/gomodule/redigo/redis"
-	uuid "github.com/satori/go.uuid"
 	"github.com/wendal/errors"
 	"gopkg.in/mgo.v2/bson"
 	"log"
@@ -313,7 +312,6 @@ func (g *MasterClusterEntity) WatchTask() {
 func (g *MasterClusterEntity) AddTask(Spec string, JobName string, Args map[string]interface{}) (*TaskInfo, error) {
 	//设置租约时间
 	resp, err := g.client.Grant(context.Background(), 5)
-	tagId := uuid.NewV4().String()
 	info, err := g.MasterEntity.AddTask(Spec, JobName, Args)
 	tmp, _ := json.Marshal(info)
 	_, err = g.client.Put(context.Background(), g.getTaskPathWithCustomPath(info.ID), string(tmp), clientv3.WithLease(resp.ID))
