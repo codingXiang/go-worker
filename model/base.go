@@ -89,6 +89,7 @@ type Service interface {
 	Do(job *work.Job) error
 	GetTaskName() string
 	GetConfig() *viper.Viper
+	GetMongoClient() *mongo.Client
 }
 
 type ServiceEntity struct {
@@ -136,6 +137,10 @@ func (g *ServiceEntity) GetTaskName() string {
 
 func (g *ServiceEntity) GetConfig() *viper.Viper {
 	return g.Config
+}
+
+func (g *ServiceEntity) GetMongoClient() *mongo.Client {
+	return g.MongoClient
 }
 
 func (g *ServiceEntity) Do(job *work.Job) error {
