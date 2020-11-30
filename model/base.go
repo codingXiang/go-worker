@@ -112,7 +112,9 @@ func (g *ServiceEntity) Callback(identity string, err error) error {
 		status = go_worker.STATUS_FAILED
 	}
 	_, err1 := g.mongoClient.C(g.GetTaskName()).Update(bson.M{
-		mongo.IDENTITY: identity,
+		mongo.TAG: bson.M{
+			mongo.IDENTITY: identity,
+		},
 	}, bson.M{
 		go_worker.UPDATE: bson.M{
 			mongo.TAG: bson.M{
