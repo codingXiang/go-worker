@@ -3,11 +3,13 @@ package go_worker
 import (
 	"context"
 	"encoding/json"
+	"github.com/codingXiang/go-orm/v2/mongo"
 	"github.com/coreos/etcd/clientv3"
 	"github.com/coreos/etcd/clientv3/concurrency"
 	"github.com/coreos/etcd/mvcc/mvccpb"
 	"github.com/gomodule/redigo/redis"
 	"github.com/wendal/errors"
+	"gopkg.in/mgo.v2/bson"
 	"log"
 	"strings"
 	"sync"
@@ -18,6 +20,17 @@ const (
 	TASK   = "task"
 	LOCK   = "lock"
 )
+const (
+	NAMESPACE       = "namespace"
+	JOB_NAME        = "jobName"
+	STATUS          = "status"
+	STATUS_PENDING  = "pending"
+	STATUS_RUNNING  = "running"
+	STATUS_COMPLETE = "complete"
+	STATUS_FAILED   = "failed"
+)
+
+const ()
 
 type ETCDAuth struct {
 	Endpoints []string
@@ -35,10 +48,11 @@ type TaskInfo struct {
 
 type MasterClusterEntity struct {
 	*MasterEntity
-	key        map[string]string
-	etcdConfig clientv3.Config
-	client     *clientv3.Client
-	lock       sync.Mutex
+	key         map[string]string
+	etcdConfig  clientv3.Config
+	client      *clientv3.Client
+	mongoClient *mongo.Client
+	lock        sync.Mutex
 }
 
 //NewMasterCluster 建立集群版本 Master Instance
@@ -57,6 +71,11 @@ func NewMasterCluster(base *MasterEntity, option *MasterOption) Master {
 	} else {
 		log.Fatal("etcd client create failed, reason is ", err.Error())
 	}
+
+	if option.MongoClient != nil {
+		cluster.mongoClient = option.MongoClient
+	}
+
 	go cluster.WatchMaster()
 	go cluster.WatchTask()
 	return cluster
@@ -303,7 +322,12 @@ func (g *MasterClusterEntity) AddTask(Spec string, JobName string, Args map[stri
 	if err != nil {
 		return nil, err
 	}
-	return info, nil
+
+	return info, g.mongoClient.C(TASK).Insert(mongo.NewRawData(info.ID, bson.M{
+		NAMESPACE: g.namespace,
+		JOB_NAME:  JobName,
+		STATUS:    STATUS_PENDING,
+	}, info))
 }
 func (g *MasterClusterEntity) ExecTask(id string) error {
 	g.lock.Lock()
@@ -311,7 +335,15 @@ func (g *MasterClusterEntity) ExecTask(id string) error {
 	if task, ok := g.tasks[id]; ok {
 		if task.GetSpec() == "now" {
 			task.Run()
-			g.RemoveTask(task.GetID())
+			g.mongoClient.C(TASK).Update(mongo.NewSearchCondition("", task.GetID(), bson.M{
+				NAMESPACE: g.namespace,
+				JOB_NAME:  task.GetJobName(),
+			}, nil), mongo.NewRawData(task.GetID(), bson.M{
+				NAMESPACE: g.namespace,
+				JOB_NAME:  task.GetJobName(),
+				STATUS:    STATUS_RUNNING,
+			}, task))
+			//g.RemoveTask(task.GetID())
 		} else {
 			if id, err := g.cron.AddJob(task.GetSpec(), task); err == nil {
 				task.SetEntryID(id)

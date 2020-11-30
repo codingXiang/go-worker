@@ -2,6 +2,7 @@ package go_worker
 
 import (
 	"errors"
+	"github.com/codingXiang/go-orm/v2/mongo"
 	"github.com/coreos/etcd/clientv3"
 	"github.com/gocraft/work"
 	"github.com/gomodule/redigo/redis"
@@ -125,12 +126,14 @@ type MasterEntity struct {
 	tasks        map[string]Enqueue
 	redisPool    *redis.Pool
 	hostname     string
+	namespace    string
 }
 
 type MasterOption struct {
-	IsCluster  bool
-	ETCDConfig clientv3.Config
-	BasePath   string
+	IsCluster   bool
+	ETCDConfig  clientv3.Config
+	MongoClient *mongo.Client
+	BasePath    string
 }
 
 type Master interface {
@@ -154,6 +157,7 @@ func NewMaster(pool *redis.Pool, namespace string, option *MasterOption) Master 
 		core:         work.NewEnqueuer(namespace, pool),
 		workerClient: work.NewClient(namespace, pool),
 		tasks:        make(map[string]Enqueue),
+		namespace:    namespace,
 		redisPool:    pool,
 	}
 	hostname, err := os.Hostname()
