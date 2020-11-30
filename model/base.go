@@ -119,7 +119,7 @@ func Callback(g Service, identity string, err error) error {
 		go_worker.UPDATE: bson.M{
 			mongo.TAG: bson.M{
 				go_worker.STATUS: status,
-			}, "fail_reason": err.Error(),
+			}, "errMsg": err.Error(),
 		},
 	})
 	if err != nil {

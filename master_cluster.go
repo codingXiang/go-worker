@@ -328,7 +328,7 @@ func (g *MasterClusterEntity) AddTask(Spec string, JobName string, Args map[stri
 		return nil, err
 	}
 
-	return info, g.mongoClient.C(TASK).Insert(mongo.NewRawData(info.ID, bson.M{
+	return info, g.mongoClient.C(info.JobName).Insert(mongo.NewRawData(info.ID, bson.M{
 		NAMESPACE:         g.namespace,
 		JOB_NAME:          JobName,
 		encoding.Identity: tagId,
@@ -341,7 +341,7 @@ func (g *MasterClusterEntity) ExecTask(id string) error {
 	if task, ok := g.tasks[id]; ok {
 		if task.GetSpec() == "now" {
 			task.Run()
-			_, err := g.mongoClient.C(TASK).Update(bson.M{
+			_, err := g.mongoClient.C(task.GetJobName()).Update(bson.M{
 				mongo.IDENTITY: task.GetID(),
 			}, bson.M{
 				UPDATE: bson.M{
