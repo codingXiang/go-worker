@@ -89,20 +89,19 @@ type Service interface {
 	Do(job *work.Job) error
 	GetTaskName() string
 	GetConfig() *viper.Viper
-	GetMongoClient() *mongo.Client
 }
 
 type ServiceEntity struct {
 	TaskName    string
 	Config      *viper.Viper
-	mongoClient *mongo.Client
+	MongoClient *mongo.Client
 }
 
 func NewService(TaskName string, Config *viper.Viper) *ServiceEntity {
 	return &ServiceEntity{
 		TaskName:    TaskName,
 		Config:      Config,
-		mongoClient: mongo.New(Config),
+		MongoClient: mongo.New(Config),
 	}
 }
 
