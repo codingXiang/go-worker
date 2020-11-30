@@ -89,7 +89,7 @@ type Service interface {
 	Do(job *work.Job) error
 	GetTaskName() string
 	GetConfig() *viper.Viper
-	Callback(err error) error
+	Callback(identity string, err error) error
 }
 
 type ServiceEntity struct {
