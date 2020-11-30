@@ -24,6 +24,7 @@ const (
 	NAMESPACE       = "namespace"
 	JOB_NAME        = "jobName"
 	STATUS          = "status"
+	UPDATE          = "$set"
 	STATUS_PENDING  = "pending"
 	STATUS_RUNNING  = "running"
 	STATUS_COMPLETE = "complete"
@@ -338,10 +339,12 @@ func (g *MasterClusterEntity) ExecTask(id string) error {
 			_, err := g.mongoClient.C(TASK).Update(bson.M{
 				mongo.IDENTITY: task.GetID(),
 			}, bson.M{
-				mongo.TAG: bson.M{
-					NAMESPACE: g.namespace,
-					JOB_NAME:  task.GetJobName(),
-					STATUS:    STATUS_RUNNING,
+				UPDATE: bson.M{
+					mongo.TAG: bson.M{
+						NAMESPACE: g.namespace,
+						JOB_NAME:  task.GetJobName(),
+						STATUS:    STATUS_RUNNING,
+					},
 				},
 			})
 			return err
