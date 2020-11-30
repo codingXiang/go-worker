@@ -89,6 +89,7 @@ type Service interface {
 	Do(job *work.Job) error
 	GetTaskName() string
 	GetConfig() *viper.Viper
+	GetMongoClient() *mongo.Client
 	Callback(identity string, err error) error
 }
 
@@ -106,12 +107,12 @@ func NewService(TaskName string, Config *viper.Viper) *ServiceEntity {
 	}
 }
 
-func (g *ServiceEntity) Callback(identity string, err error) error {
+func Callback(g Service, identity string, err error) error {
 	status := go_worker.STATUS_COMPLETE
 	if err != nil {
 		status = go_worker.STATUS_FAILED
 	}
-	_, err1 := g.mongoClient.C(g.GetTaskName()).Update(bson.M{
+	_, err1 := g.GetMongoClient().C(g.GetTaskName()).Update(bson.M{
 		mongo.TAG: bson.M{
 			mongo.IDENTITY: identity,
 		},
