@@ -338,11 +338,11 @@ func (g *MasterClusterEntity) ExecTask(id string) error {
 			_, err := g.mongoClient.C(TASK).Update(mongo.NewSearchCondition("", task.GetID(), bson.M{
 				NAMESPACE: g.namespace,
 				JOB_NAME:  task.GetJobName(),
-			}, nil), mongo.NewRawData(task.GetID(), bson.M{
-				NAMESPACE: g.namespace,
-				JOB_NAME:  task.GetJobName(),
-				STATUS:    STATUS_RUNNING,
-			}, task))
+			}, nil), bson.M{
+				mongo.TAG: bson.M{
+					STATUS: STATUS_RUNNING,
+				},
+			})
 			return err
 			//g.RemoveTask(task.GetID())
 		} else {
