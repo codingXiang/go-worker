@@ -335,12 +335,13 @@ func (g *MasterClusterEntity) ExecTask(id string) error {
 	if task, ok := g.tasks[id]; ok {
 		if task.GetSpec() == "now" {
 			task.Run()
-			_, err := g.mongoClient.C(TASK).Update(mongo.NewSearchCondition("", task.GetID(), bson.M{
-				NAMESPACE: g.namespace,
-				JOB_NAME:  task.GetJobName(),
-			}, nil), bson.M{
+			_, err := g.mongoClient.C(TASK).Update(bson.M{
+				mongo.IDENTITY: task.GetID(),
+			}, bson.M{
 				mongo.TAG: bson.M{
-					STATUS: STATUS_RUNNING,
+					NAMESPACE: g.namespace,
+					JOB_NAME:  task.GetJobName(),
+					STATUS:    STATUS_RUNNING,
 				},
 			})
 			return err
