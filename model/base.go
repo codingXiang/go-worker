@@ -107,28 +107,26 @@ func NewService(TaskName string, Config *viper.Viper) *ServiceEntity {
 }
 
 func Callback(g Service, identity string, err error) error {
-	//status := go_worker.STATUS_COMPLETE
-	status := bson.M{
-		go_worker.STATUS: go_worker.STATUS_COMPLETE,
-	}
-	if err != nil {
-		status = bson.M{
-			go_worker.STATUS: go_worker.STATUS_FAILED,
+	if data, e := g.GetMongoClient().C(g.GetTaskName()).First(bson.M{
+		mongo.IDENTITY: identity,
+	}); e != nil {
+		return e
+	} else {
+		tag := data.Tag
+		tag[go_worker.STATUS] = go_worker.STATUS_COMPLETE
+		if err != nil {
+			tag[go_worker.STATUS] = go_worker.STATUS_FAILED
+			tag["errMsg"] = err.Error()
+		}
+		if _, err1 := g.GetMongoClient().C(g.GetTaskName()).Update(bson.M{
+			mongo.IDENTITY: identity,
+		}, bson.M{
+			go_worker.UPDATE: tag,
+		}); err1 != nil {
+			return err1
 		}
 	}
-	_, err1 := g.GetMongoClient().C(g.GetTaskName()).Update(bson.M{
-		mongo.IDENTITY: identity,
-	}, bson.M{
-		go_worker.UPDATE: bson.M{
-			mongo.TAG: status,
-		},
-	})
-	if err != nil {
-		return err
-	}
-	if err1 != nil {
-		return err1
-	}
+
 	return nil
 }
 
