@@ -121,7 +121,9 @@ func Callback(g Service, identity string, err error) error {
 		if _, err1 := g.GetMongoClient().C(g.GetTaskName()).Update(bson.M{
 			mongo.IDENTITY: identity,
 		}, bson.M{
-			go_worker.UPDATE: tag,
+			go_worker.UPDATE: bson.M{
+				"tag": tag,
+			},
 		}); err1 != nil {
 			return err1
 		}
