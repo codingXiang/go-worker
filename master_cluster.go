@@ -339,7 +339,9 @@ func (g *MasterClusterEntity) ExecTask(id string) error {
 				NAMESPACE: g.namespace,
 				JOB_NAME:  task.GetJobName(),
 			}, nil), bson.M{
-				STATUS: STATUS_RUNNING,
+				mongo.TAG: bson.M{
+					STATUS: STATUS_RUNNING,
+				},
 			})
 			return err
 			//g.RemoveTask(task.GetID())
