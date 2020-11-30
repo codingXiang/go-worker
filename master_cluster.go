@@ -346,9 +346,10 @@ func (g *MasterClusterEntity) ExecTask(id string) error {
 			}, bson.M{
 				UPDATE: bson.M{
 					mongo.TAG: bson.M{
-						NAMESPACE: g.namespace,
-						JOB_NAME:  task.GetJobName(),
-						STATUS:    STATUS_RUNNING,
+						NAMESPACE:         g.namespace,
+						JOB_NAME:          task.GetJobName(),
+						encoding.Identity: task.GetArgs()[encoding.Identity],
+						STATUS:            STATUS_RUNNING,
 					},
 				},
 			})
