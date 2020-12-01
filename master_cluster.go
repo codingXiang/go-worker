@@ -314,7 +314,7 @@ func (g *MasterClusterEntity) ExecTask(id string) error {
 	defer g.lock.Unlock()
 	if err := g.MasterEntity.ExecTask(id); err == nil {
 		if g.tasks[id].GetSpec() == "now" {
-			return g.RemoveTask(id)
+			return g.removeTaskWithoutRecord(id)
 		} else {
 			return nil
 		}
@@ -337,6 +337,16 @@ func (g *MasterClusterEntity) ExecTask(id string) error {
 	//} else {
 	//	return errors.New("task " + id + " is not exist")
 	//}
+}
+
+func (g *MasterClusterEntity) removeTaskWithoutRecord(id string) error {
+	g.lock.Lock()
+	defer g.lock.Unlock()
+	if _, err := g.client.Delete(context.TODO(), g.getTaskPathWithCustomPath(id)); err == nil {
+		return nil
+	} else {
+		return err
+	}
 }
 
 //RemoveTask 移除任務
