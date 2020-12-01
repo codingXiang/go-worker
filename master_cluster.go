@@ -3,13 +3,11 @@ package go_worker
 import (
 	"context"
 	"encoding/json"
-	"github.com/codingXiang/go-orm/v2/mongo"
 	"github.com/coreos/etcd/clientv3"
 	"github.com/coreos/etcd/clientv3/concurrency"
 	"github.com/coreos/etcd/mvcc/mvccpb"
 	"github.com/gomodule/redigo/redis"
 	"github.com/wendal/errors"
-	"gopkg.in/mgo.v2/bson"
 	"log"
 	"strings"
 	"sync"
@@ -20,18 +18,6 @@ const (
 	TASK   = "task"
 	LOCK   = "lock"
 )
-const (
-	NAMESPACE       = "namespace"
-	JOB_NAME        = "jobName"
-	STATUS          = "status"
-	UPDATE          = "$set"
-	STATUS_PENDING  = "pending"
-	STATUS_RUNNING  = "running"
-	STATUS_COMPLETE = "complete"
-	STATUS_FAILED   = "failed"
-)
-
-const ()
 
 type ETCDAuth struct {
 	Endpoints []string
@@ -49,11 +35,10 @@ type TaskInfo struct {
 
 type MasterClusterEntity struct {
 	*MasterEntity
-	key         map[string]string
-	etcdConfig  clientv3.Config
-	client      *clientv3.Client
-	mongoClient *mongo.Client
-	lock        sync.Mutex
+	key        map[string]string
+	etcdConfig clientv3.Config
+	client     *clientv3.Client
+	lock       sync.Mutex
 }
 
 //NewMasterCluster 建立集群版本 Master Instance
@@ -72,11 +57,6 @@ func NewMasterCluster(base *MasterEntity, option *MasterOption) Master {
 	} else {
 		log.Fatal("etcd client create failed, reason is ", err.Error())
 	}
-
-	if option.MongoClient != nil {
-		cluster.mongoClient = option.MongoClient
-	}
-
 	go cluster.WatchMaster()
 	go cluster.WatchTask()
 	return cluster
@@ -313,6 +293,9 @@ func (g *MasterClusterEntity) AddTask(Spec string, JobName string, Args map[stri
 	//设置租约时间
 	resp, err := g.client.Grant(context.Background(), 5)
 	info, err := g.MasterEntity.AddTask(Spec, JobName, Args)
+	if err != nil {
+		return nil, err
+	}
 	tmp, _ := json.Marshal(info)
 	_, err = g.client.Put(context.Background(), g.getTaskPathWithCustomPath(info.ID), string(tmp), clientv3.WithLease(resp.ID))
 	if err != nil {
@@ -324,43 +307,36 @@ func (g *MasterClusterEntity) AddTask(Spec string, JobName string, Args map[stri
 		return nil, err
 	}
 
-	return info, g.mongoClient.C(info.JobName).Insert(mongo.NewRawData(info.ID, bson.M{
-		NAMESPACE: g.namespace,
-		JOB_NAME:  JobName,
-		STATUS:    STATUS_PENDING,
-	}, info))
+	return info, nil
 }
 func (g *MasterClusterEntity) ExecTask(id string) error {
 	g.lock.Lock()
 	defer g.lock.Unlock()
-	if task, ok := g.tasks[id]; ok {
-		if task.GetSpec() == "now" {
-			task.Run()
-			_, err := g.mongoClient.C(task.GetJobName()).Update(bson.M{
-				mongo.IDENTITY: task.GetID(),
-			}, bson.M{
-				UPDATE: bson.M{
-					mongo.TAG: bson.M{
-						NAMESPACE: g.namespace,
-						JOB_NAME:  task.GetJobName(),
-						STATUS:    STATUS_RUNNING,
-					},
-				},
-			})
-			return err
-			//g.RemoveTask(task.GetID())
+	if err := g.MasterEntity.ExecTask(id); err == nil {
+		if g.tasks[id].GetSpec() == "now" {
+			return g.RemoveTask(id)
 		} else {
-			if id, err := g.cron.AddJob(task.GetSpec(), task); err == nil {
-				task.SetEntryID(id)
-			} else {
-				return err
-			}
-			g.cron.Start()
+			return nil
 		}
-		return nil
 	} else {
-		return errors.New("task " + id + " is not exist")
+		return err
 	}
+	//if task, ok := g.tasks[id]; ok {
+	//	if task.GetSpec() == "now" {
+	//		task.Run()
+	//		g.RemoveTask(task.GetID())
+	//	} else {
+	//		if id, err := g.cron.AddJob(task.GetSpec(), task); err == nil {
+	//			task.SetEntryID(id)
+	//		} else {
+	//			return err
+	//		}
+	//		g.cron.Start()
+	//	}
+	//	return nil
+	//} else {
+	//	return errors.New("task " + id + " is not exist")
+	//}
 }
 
 //RemoveTask 移除任務

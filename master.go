@@ -8,12 +8,27 @@ import (
 	"github.com/gomodule/redigo/redis"
 	cronV3 "github.com/robfig/cron/v3"
 	uuid "github.com/satori/go.uuid"
-	"google.golang.org/grpc/encoding"
+	"gopkg.in/mgo.v2/bson"
 	"os"
 )
 
 const (
 	Now = "now"
+)
+
+const (
+	IDENTITY          = "identity"
+	NAMESPACE         = "namespace"
+	JOB_NAME          = "jobName"
+	STATUS            = "status"
+	UPDATE            = "$set"
+	STATUS_SCHEDULING = "scheduling"
+	STATUS_REMOVE     = "remove"
+	STATUS_PENDING    = "pending"
+	STATUS_RUNNING    = "running"
+	STATUS_COMPLETE   = "complete"
+	STATUS_FAILED     = "failed"
+	ERR_MSG           = "errMsg"
 )
 
 //EnqueueEntity 實例
@@ -124,6 +139,7 @@ type MasterEntity struct {
 	cron         *cronV3.Cron
 	core         *work.Enqueuer
 	workerClient *work.Client
+	mongoClient  *mongo.Client
 	tasks        map[string]Enqueue
 	redisPool    *redis.Pool
 	hostname     string
@@ -169,6 +185,10 @@ func NewMaster(pool *redis.Pool, namespace string, option *MasterOption) Master 
 		return nil
 	}
 	if option != nil {
+		if option.MongoClient != nil {
+			master.mongoClient = option.MongoClient
+		}
+
 		if option.IsCluster {
 			return NewMasterCluster(master, option)
 		} else {
@@ -193,7 +213,7 @@ func (g *MasterEntity) AddTask(Spec string, JobName string, Args map[string]inte
 	enqueue := NewEnqueue(g.core, Spec, JobName, Args)
 	g.tasks[enqueue.GetID()] = enqueue
 	args := enqueue.GetArgs()
-	args[encoding.Identity] = enqueue.GetID()
+	args[mongo.IDENTITY] = enqueue.GetID()
 	info := &TaskInfo{
 		MasterID: g.GetID(),
 		ID:       enqueue.GetID(),
@@ -201,7 +221,11 @@ func (g *MasterEntity) AddTask(Spec string, JobName string, Args map[string]inte
 		JobName:  enqueue.GetJobName(),
 		Args:     args,
 	}
-	return info, nil
+	return info, g.mongoClient.C(g.namespace + "." + info.JobName).Insert(mongo.NewRawData(info.ID, bson.M{
+		NAMESPACE: g.namespace,
+		JOB_NAME:  JobName,
+		STATUS:    STATUS_PENDING,
+	}, info))
 }
 
 func (g *MasterEntity) GetEnqueues() map[string]Enqueue {
@@ -240,11 +264,27 @@ func (g *MasterEntity) GetBusyWorkers() ([]*work.WorkerObservation, error) {
 	return busyObservations, nil
 }
 
+func (g *MasterEntity) updateTask(task Enqueue, status string) error {
+	_, err := g.mongoClient.C(g.namespace+"."+task.GetJobName()).Update(bson.M{
+		mongo.IDENTITY: task.GetID(),
+	}, bson.M{
+		UPDATE: bson.M{
+			mongo.TAG: bson.M{
+				NAMESPACE: g.namespace,
+				JOB_NAME:  task.GetJobName(),
+				STATUS:    status,
+			},
+		},
+	})
+	return err
+}
+
 //啟動排程
 func (g *MasterEntity) ExecTask(id string) error {
 	if task, ok := g.tasks[id]; ok {
 		if task.GetSpec() == Now {
 			task.Run()
+			return g.updateTask(task, STATUS_RUNNING)
 		} else {
 			if id, err := g.cron.AddJob(task.GetSpec(), task); err == nil {
 				task.SetEntryID(id)
@@ -252,8 +292,8 @@ func (g *MasterEntity) ExecTask(id string) error {
 				return err
 			}
 			g.cron.Start()
+			return g.updateTask(task, STATUS_SCHEDULING)
 		}
-		return nil
 	} else {
 		return errors.New("task " + id + " is not exist")
 	}
@@ -270,8 +310,12 @@ func (g *MasterEntity) RemoveTask(id string) error {
 				return errors.New("task " + id + " is not execute")
 			}
 		}
-		delete(g.tasks, id)
-		return nil
+		if err := g.updateTask(task, STATUS_REMOVE); err == nil {
+			delete(g.tasks, id)
+			return nil
+		} else {
+			return err
+		}
 	} else {
 		return errors.New("task " + id + " is not exist")
 	}
