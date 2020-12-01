@@ -164,6 +164,7 @@ type Master interface {
 	GetQueues() ([]*work.Queue, error)
 	ExecTask(id string) error
 	RemoveTask(id string) error
+	RemoveTaskRecord(id string) error
 }
 
 //NewMaster 建立 Master 實例
@@ -310,12 +311,28 @@ func (g *MasterEntity) RemoveTask(id string) error {
 				return errors.New("task " + id + " is not execute")
 			}
 		}
-		if err := g.updateTask(task, STATUS_REMOVE); err == nil {
-			delete(g.tasks, id)
-			return nil
-		} else {
+		delete(g.tasks, id)
+		return nil
+	} else {
+		return errors.New("task " + id + " is not exist")
+	}
+}
+
+func (g *MasterEntity) RemoveTaskRecord(id string) error {
+	if task, ok := g.tasks[id]; ok {
+		if task.GetSpec() != Now {
+			if EntryID := task.GetEntryID(); EntryID != 0 {
+				g.cron.Remove(EntryID)
+				g.cron.Start()
+			} else {
+				return errors.New("task " + id + " is not execute")
+			}
+		}
+		if err := g.updateTask(task, STATUS_REMOVE); err != nil {
 			return err
 		}
+		delete(g.tasks, id)
+		return nil
 	} else {
 		return errors.New("task " + id + " is not exist")
 	}

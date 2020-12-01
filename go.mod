@@ -7,7 +7,7 @@ replace google.golang.org/grpc => google.golang.org/grpc v1.26.0
 require (
 	github.com/Scalingo/go-etcd-lock v4.0.0+incompatible // indirect
 	github.com/codingXiang/cxgateway v1.0.22 // indirect
-	github.com/codingXiang/go-orm/v2 v2.0.2 // indirect
+	github.com/codingXiang/go-orm/v2 v2.0.2
 	github.com/coreos/etcd v3.3.22+incompatible
 	github.com/coreos/go-semver v0.3.0 // indirect
 	github.com/coreos/go-systemd v0.0.0-20191104093116-d3cd4ed1dbcf // indirect
@@ -33,4 +33,5 @@ require (
 	golang.org/x/text v0.3.3 // indirect
 	google.golang.org/genproto v0.0.0-20200804151602-45615f50871c // indirect
 	google.golang.org/protobuf v1.25.0 // indirect
+	gopkg.in/mgo.v2 v2.0.0-20190816093944-a6b53ec6cb22
 )

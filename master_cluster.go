@@ -260,9 +260,11 @@ func (g *MasterClusterEntity) WatchMaster() {
 			key := strings.ReplaceAll(string(kv.Key), g.getMasterPath()+"/", "")
 			switch ev.Type {
 			case mvccpb.PUT: //修改或者新增
-				g.handleRetiredMaster(key)
-			case mvccpb.DELETE: //删除
 				log.Println("master ", key, " was joined!")
+				break
+			case mvccpb.DELETE: //删除
+				g.handleRetiredMaster(key)
+				break
 			}
 		}
 	}
@@ -280,7 +282,9 @@ func (g *MasterClusterEntity) WatchTask() {
 			key := strings.ReplaceAll(string(kv.Key), taskPath+"/", "")
 			switch ev.Type {
 			case mvccpb.DELETE: //删除
+				log.Println("task ", key, " has been removed")
 				g.MasterEntity.RemoveTask(key)
+				break
 			}
 		}
 	}
@@ -310,52 +314,42 @@ func (g *MasterClusterEntity) AddTask(Spec string, JobName string, Args map[stri
 	return info, nil
 }
 func (g *MasterClusterEntity) ExecTask(id string) error {
-	g.lock.Lock()
-	defer g.lock.Unlock()
-	if err := g.MasterEntity.ExecTask(id); err == nil {
-		if g.tasks[id].GetSpec() == "now" {
-			return g.removeTaskWithoutRecord(id)
-		} else {
-			return nil
-		}
-	} else {
-		return err
-	}
-	//if task, ok := g.tasks[id]; ok {
-	//	if task.GetSpec() == "now" {
-	//		task.Run()
-	//		g.RemoveTask(task.GetID())
+	//g.lock.Lock()
+	//defer g.lock.Unlock()
+	//if err := g.MasterEntity.ExecTask(id); err == nil {
+	//	if g.tasks[id].GetSpec() == "now" {
+	//		g.MasterEntity.updateTask()
+	//		return g.RemoveTask(id)
 	//	} else {
-	//		if id, err := g.cron.AddJob(task.GetSpec(), task); err == nil {
-	//			task.SetEntryID(id)
-	//		} else {
-	//			return err
-	//		}
-	//		g.cron.Start()
+	//		return nil
 	//	}
-	//	return nil
 	//} else {
-	//	return errors.New("task " + id + " is not exist")
+	//	return err
 	//}
-}
-
-func (g *MasterClusterEntity) removeTaskWithoutRecord(id string) error {
-	g.lock.Lock()
-	defer g.lock.Unlock()
-	if _, err := g.client.Delete(context.TODO(), g.getTaskPathWithCustomPath(id)); err == nil {
+	if task, ok := g.tasks[id]; ok {
+		if task.GetSpec() == "now" {
+			task.Run()
+			g.RemoveTask(task.GetID())
+		} else {
+			if id, err := g.cron.AddJob(task.GetSpec(), task); err == nil {
+				task.SetEntryID(id)
+			} else {
+				return err
+			}
+			g.cron.Start()
+		}
 		return nil
 	} else {
-		return err
+		return errors.New("task " + id + " is not exist")
 	}
 }
 
 //RemoveTask 移除任務
 func (g *MasterClusterEntity) RemoveTask(id string) error {
-	g.lock.Lock()
-	defer g.lock.Unlock()
-	if _, err := g.client.Delete(context.TODO(), g.getTaskPathWithCustomPath(id)); err == nil {
-		return g.MasterEntity.RemoveTask(id)
-	} else {
-		return err
-	}
+	_, err := g.client.Delete(context.TODO(), g.getTaskPathWithCustomPath(id))
+	return err
+}
+
+func (g *MasterClusterEntity) RemoveTaskRecord(id string) error {
+	return g.MasterEntity.RemoveTaskRecord(id)
 }
