@@ -118,7 +118,7 @@ func Callback(g Service, namespace string, identity string, err error) error {
 			tag[go_worker.STATUS] = go_worker.STATUS_FAILED
 			tag[go_worker.ERR_MSG] = err.Error()
 		}
-		if _, err1 := g.GetMongoClient().C(g.GetTaskName()).Update(bson.M{
+		if _, err1 := g.GetMongoClient().C(namespace + "." + g.GetTaskName()).Update(bson.M{
 			mongo.IDENTITY: identity,
 		}, bson.M{
 			go_worker.UPDATE: bson.M{
