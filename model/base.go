@@ -7,6 +7,7 @@ import (
 	"github.com/gocraft/work"
 	"github.com/spf13/viper"
 	"gopkg.in/mgo.v2/bson"
+	"log"
 	"time"
 )
 
@@ -88,8 +89,33 @@ type BaseJobData struct {
 type ExecHistory struct {
 	Status     string    `json:"history"`
 	Message    string    `json:"message"`
-	CostTime   int       `json:"costTime"`
+	CostTime   int64     `json:"costTime"`
 	CompleteAt time.Time `json:"completeAt"`
+}
+
+type CostTime struct {
+	Start time.Time
+	Since time.Duration
+}
+
+func NewCostTime() *CostTime {
+	return &CostTime{
+		Start: time.Now(),
+	}
+}
+
+func (c *CostTime) GetMillionSecond() int64 {
+	return int64(c.Since / time.Millisecond)
+}
+
+func CalCostTime(c *CostTime) func() {
+	if c == nil {
+		c = NewCostTime()
+	}
+	return func() {
+		c.Since = time.Since(c.Start)
+		log.Println("cost time = ", c.GetMillionSecond(), "ms")
+	}
 }
 
 type Service interface {
@@ -138,7 +164,7 @@ func update(client *mongo.Client, namespace, taskName, identity string, err erro
 	return err
 }
 
-func addBuildHistory(client *mongo.Client, namespace, taskName, identity string, costTime int, err error) error {
+func addBuildHistory(client *mongo.Client, namespace, taskName, identity string, costTime int64, err error) error {
 
 	build := &ExecHistory{
 		Status:     go_worker.STATUS_COMPLETE,
@@ -160,9 +186,9 @@ func addBuildHistory(client *mongo.Client, namespace, taskName, identity string,
 	return err
 }
 
-func Callback(g Service, namespace string, identity string, costTime int, err error) error {
+func Callback(g Service, namespace string, identity string, costTime *CostTime, err error) error {
 	err = update(g.GetMongoClient(), namespace, g.GetTaskName(), identity, err)
-	err = addBuildHistory(g.GetMongoClient(), namespace, g.GetTaskName(), identity, costTime, err)
+	err = addBuildHistory(g.GetMongoClient(), namespace, g.GetTaskName(), identity, costTime.GetMillionSecond(), err)
 	return err
 }
 
