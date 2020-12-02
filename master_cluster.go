@@ -330,7 +330,8 @@ func (g *MasterClusterEntity) ExecTask(id string) error {
 	if task, ok := g.tasks[id]; ok {
 		if task.GetSpec() == "now" {
 			task.Run()
-			g.RemoveTask(task.GetID())
+			g.updateTask(task, STATUS_RUNNING)
+			return g.RemoveTask(task.GetID())
 		} else {
 			if id, err := g.cron.AddJob(task.GetSpec(), task); err == nil {
 				task.SetEntryID(id)
@@ -338,8 +339,8 @@ func (g *MasterClusterEntity) ExecTask(id string) error {
 				return err
 			}
 			g.cron.Start()
+			return g.updateTask(task, STATUS_SCHEDULING)
 		}
-		return nil
 	} else {
 		return errors.New("task " + id + " is not exist")
 	}
