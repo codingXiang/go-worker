@@ -7,7 +7,6 @@ import (
 	"github.com/gocraft/work"
 	"github.com/spf13/viper"
 	"gopkg.in/mgo.v2/bson"
-	"log"
 	"time"
 )
 
@@ -105,17 +104,7 @@ func NewCostTime() *CostTime {
 }
 
 func (c *CostTime) GetMillionSecond() int64 {
-	return int64(c.Since / time.Millisecond)
-}
-
-func CalCostTime(c *CostTime) func() {
-	if c == nil {
-		c = NewCostTime()
-	}
-	return func() {
-		c.Since = time.Since(c.Start)
-		log.Println("cost time = ", c.GetMillionSecond(), "ms")
-	}
+	return int64(time.Since(c.Start) / time.Millisecond)
 }
 
 type Service interface {
@@ -165,7 +154,6 @@ func update(client *mongo.Client, namespace, taskName, identity string, err erro
 }
 
 func addBuildHistory(client *mongo.Client, namespace, taskName, identity string, costTime int64, err error) error {
-
 	build := &ExecHistory{
 		Status:     go_worker.STATUS_COMPLETE,
 		Message:    "執行完成",
@@ -186,10 +174,12 @@ func addBuildHistory(client *mongo.Client, namespace, taskName, identity string,
 	return err
 }
 
-func Callback(g Service, namespace string, identity string, costTime *CostTime, err error) error {
-	err = update(g.GetMongoClient(), namespace, g.GetTaskName(), identity, err)
-	err = addBuildHistory(g.GetMongoClient(), namespace, g.GetTaskName(), identity, costTime.GetMillionSecond(), err)
-	return err
+func Callback(g Service, namespace string, identity string, err error) func() {
+	costTime := NewCostTime()
+	return func() {
+		update(g.GetMongoClient(), namespace, g.GetTaskName(), identity, err)
+		addBuildHistory(g.GetMongoClient(), namespace, g.GetTaskName(), identity, costTime.GetMillionSecond(), err)
+	}
 }
 
 func (g *ServiceEntity) GetTaskName() string {
