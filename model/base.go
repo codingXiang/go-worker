@@ -7,6 +7,7 @@ import (
 	"github.com/gocraft/work"
 	"github.com/spf13/viper"
 	"gopkg.in/mgo.v2/bson"
+	"time"
 )
 
 type Status int
@@ -84,6 +85,13 @@ type BaseJobData struct {
 	Identity string `json:"identity"`
 }
 
+type ExecHistory struct {
+	Status     string    `json:"history"`
+	Message    string    `json:"message"`
+	CostTime   int       `json:"costTime"`
+	CompleteAt time.Time `json:"completeAt"`
+}
+
 type Service interface {
 	GetRegisterInfo() *JobInfo
 	Do(job *work.Job) error
@@ -106,8 +114,8 @@ func NewService(TaskName string, Config *viper.Viper) *ServiceEntity {
 	}
 }
 
-func Callback(g Service, namespace string, identity string, err error) error {
-	if data, e := g.GetMongoClient().C(namespace + "." + g.GetTaskName()).First(bson.M{
+func update(client *mongo.Client, namespace, taskName, identity string, err error) error {
+	if data, e := client.C(namespace + "." + taskName).First(bson.M{
 		mongo.IDENTITY: identity,
 	}); e != nil {
 		return e
@@ -117,19 +125,45 @@ func Callback(g Service, namespace string, identity string, err error) error {
 		if err != nil {
 			tag[go_worker.STATUS] = go_worker.STATUS_FAILED
 		}
-		if _, err1 := g.GetMongoClient().C(namespace+"."+g.GetTaskName()).Update(bson.M{
+		if _, err1 := client.C(namespace+"."+taskName).Update(bson.M{
 			mongo.IDENTITY: identity,
 		}, bson.M{
 			go_worker.UPDATE: bson.M{
-				mongo.TAG:         tag,
-				go_worker.ERR_MSG: err.Error(),
+				mongo.TAG: tag,
 			},
 		}); err1 != nil {
 			return err1
 		}
 	}
+	return err
+}
 
-	return nil
+func addBuildHistory(client *mongo.Client, namespace, taskName, identity string, costTime int, err error) error {
+
+	build := &ExecHistory{
+		Status:     go_worker.STATUS_COMPLETE,
+		Message:    "執行完成",
+		CostTime:   costTime,
+		CompleteAt: time.Now(),
+	}
+	if err != nil {
+		build.Status = go_worker.STATUS_FAILED
+		build.Message = err.Error()
+	}
+	update := bson.M{"$push": bson.M{go_worker.HISTORY: build}}
+
+	if _, err1 := client.C(namespace+"."+taskName).Update(bson.M{
+		mongo.IDENTITY: identity,
+	}, update); err1 != nil {
+		return err1
+	}
+	return err
+}
+
+func Callback(g Service, namespace string, identity string, costTime int, err error) error {
+	err = update(g.GetMongoClient(), namespace, g.GetTaskName(), identity, err)
+	err = addBuildHistory(g.GetMongoClient(), namespace, g.GetTaskName(), identity, costTime, err)
+	return err
 }
 
 func (g *ServiceEntity) GetTaskName() string {

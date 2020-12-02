@@ -28,7 +28,7 @@ const (
 	STATUS_RUNNING    = "running"
 	STATUS_COMPLETE   = "complete"
 	STATUS_FAILED     = "failed"
-	ERR_MSG           = "errMsg"
+	HISTORY           = "history"
 )
 
 //EnqueueEntity 實例
