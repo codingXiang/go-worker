@@ -174,12 +174,10 @@ func addBuildHistory(client *mongo.Client, namespace, taskName, identity string,
 	return err
 }
 
-func Callback(g Service, namespace string, identity string, err error) func() {
-	costTime := NewCostTime()
-	return func() {
-		update(g.GetMongoClient(), namespace, g.GetTaskName(), identity, err)
-		addBuildHistory(g.GetMongoClient(), namespace, g.GetTaskName(), identity, costTime.GetMillionSecond(), err)
-	}
+func Callback(g Service, namespace string, identity string, costTime *CostTime, err error) error {
+	err = update(g.GetMongoClient(), namespace, g.GetTaskName(), identity, err)
+	err = addBuildHistory(g.GetMongoClient(), namespace, g.GetTaskName(), identity, costTime.GetMillionSecond(), err)
+	return err
 }
 
 func (g *ServiceEntity) GetTaskName() string {
