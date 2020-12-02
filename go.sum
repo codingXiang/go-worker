@@ -59,6 +59,8 @@ github.com/codingXiang/go-orm v1.0.7 h1:Hapg4PT4JuSYZNvBYTLoTYnSDT1UOOtDO2Khq8dN
 github.com/codingXiang/go-orm v1.0.7/go.mod h1:KFuYq6gfteQXvuHoribh5CQ2wR+tSK4PjpwsmCPbTGg=
 github.com/codingXiang/go-orm/v2 v2.0.2 h1:wUBZ4WZC5nlXt2mGJE62liMTMRPiqniGymIvY6vIbGQ=
 github.com/codingXiang/go-orm/v2 v2.0.2/go.mod h1:+6rW14IljiXMQOemGW7ahbRBWhkshdcrmpruOwLGoNk=
+github.com/codingXiang/go-orm/v2 v2.0.3 h1:lz4BLndxwGFKzpE6yd3lE/py1am2b5edQKZmRydbfFc=
+github.com/codingXiang/go-orm/v2 v2.0.3/go.mod h1:+6rW14IljiXMQOemGW7ahbRBWhkshdcrmpruOwLGoNk=
 github.com/codingXiang/gogo-i18n v1.0.2-0.20200417093325-c191114c00c4 h1:+r68mbuh5uG5/ymWFPP5zaNWhyx2fa1A2IukD5Z2ns8=
 github.com/codingXiang/gogo-i18n v1.0.2-0.20200417093325-c191114c00c4/go.mod h1:0ZyAThznpOQp5tY7nuX/YDZ/DqMjzXs2HKedRLUmXxg=
 github.com/coreos/bbolt v1.3.2/go.mod h1:iRUV2dpdMOn7Bo10OQBFzIJO9kkE559Wcmn+qkEiiKk=
