@@ -163,7 +163,7 @@ type Master interface {
 	GetBusyWorkers() ([]*work.WorkerObservation, error)
 	GetQueues() ([]*work.Queue, error)
 	ExecTask(id string) error
-	WaitTask(id string, onChange func(data *mongo.RawData) bool, onDelete func()) error
+	WaitTask(id string, onChange func(data *mongo.RawData) (bool, error), onDelete func()) error
 	RemoveTask(id string) error
 	RemoveTaskRecord(id string) error
 }
