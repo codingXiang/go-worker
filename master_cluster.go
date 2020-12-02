@@ -356,6 +356,6 @@ func (g *MasterClusterEntity) RemoveTaskRecord(id string) error {
 	return g.MasterEntity.RemoveTaskRecord(id)
 }
 
-func (g *MasterClusterEntity) WaitTask(id string, onChange func(data *mongo.RawData) bool, onDelete func()) error {
+func (g *MasterClusterEntity) WaitTask(id string, onChange func(data *mongo.RawData) (bool, error), onDelete func()) error {
 	return g.MasterEntity.WaitTask(id, onChange, onDelete)
 }
