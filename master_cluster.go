@@ -3,6 +3,7 @@ package go_worker
 import (
 	"context"
 	"encoding/json"
+	"github.com/codingXiang/go-orm/v2/mongo"
 	"github.com/coreos/etcd/clientv3"
 	"github.com/coreos/etcd/clientv3/concurrency"
 	"github.com/coreos/etcd/mvcc/mvccpb"
@@ -352,4 +353,8 @@ func (g *MasterClusterEntity) RemoveTask(id string) error {
 
 func (g *MasterClusterEntity) RemoveTaskRecord(id string) error {
 	return g.MasterEntity.RemoveTaskRecord(id)
+}
+
+func (g *MasterClusterEntity) WaitTask(id string, onChange func(data *mongo.RawData), onDelete func()) error {
+	return g.MasterEntity.WaitTask(id, onChange, onDelete)
 }

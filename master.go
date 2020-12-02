@@ -163,6 +163,7 @@ type Master interface {
 	GetBusyWorkers() ([]*work.WorkerObservation, error)
 	GetQueues() ([]*work.Queue, error)
 	ExecTask(id string) error
+	WaitTask(id string, onChange func(data *mongo.RawData), onDelete func()) error
 	RemoveTask(id string) error
 	RemoveTaskRecord(id string) error
 }
@@ -336,4 +337,13 @@ func (g *MasterEntity) RemoveTaskRecord(id string) error {
 	} else {
 		return errors.New("task " + id + " is not exist")
 	}
+}
+
+func (g *MasterEntity) WaitTask(id string, onChange func(data *mongo.RawData), onDelete func()) error {
+	if task, ok := g.tasks[id]; ok {
+		return g.mongoClient.WaitForChange(g.namespace+"."+task.GetJobName(), bson.M{
+			mongo.IDENTITY: task.GetID(),
+		}, onChange, onDelete)
+	}
+	return errors.New("task " + id + " is not exist")
 }
