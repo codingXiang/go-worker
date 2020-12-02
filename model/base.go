@@ -164,7 +164,9 @@ func addBuildHistory(client *mongo.Client, data *mongo.RawData, namespace, taskN
 		build.Message = err.Error()
 	}
 
-	if err1 := client.C(namespace + "." + taskName + "." + go_worker.HISTORY).Insert(mongo.NewRawData(data.Identity, nil, build)); err1 != nil {
+	if err1 := client.C(namespace + "." + taskName + "." + go_worker.HISTORY).Insert(mongo.NewRawData("", map[string]interface{}{
+		mongo.IDENTITY: data.Identity,
+	}, build)); err1 != nil {
 		return err1
 	}
 
