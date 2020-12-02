@@ -163,11 +163,8 @@ func addBuildHistory(client *mongo.Client, data *mongo.RawData, namespace, taskN
 		build.Status = go_worker.STATUS_FAILED
 		build.Message = err.Error()
 	}
-	update := bson.M{"$push": bson.M{"raw": build}}
 
-	if _, err1 := client.C(namespace+"."+taskName+"."+go_worker.HISTORY).Update(bson.M{
-		mongo.IDENTITY: data.Identity,
-	}, update); err1 != nil {
+	if err1 := client.C(namespace + "." + taskName + "." + go_worker.HISTORY).Insert(mongo.NewRawData(data.Identity, nil, build)); err1 != nil {
 		return err1
 	}
 
