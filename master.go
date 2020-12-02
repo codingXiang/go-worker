@@ -1,6 +1,7 @@
 package go_worker
 
 import (
+	"context"
 	"errors"
 	"github.com/codingXiang/go-orm/v2/mongo"
 	"github.com/coreos/etcd/clientv3"
@@ -341,7 +342,7 @@ func (g *MasterEntity) RemoveTaskRecord(id string) error {
 
 func (g *MasterEntity) WaitTask(id string, onChange func(data *mongo.RawData) (bool, error), onDelete func()) error {
 	if task, ok := g.tasks[id]; ok {
-		return g.mongoClient.WaitForChange(g.namespace+"."+task.GetJobName(), bson.M{
+		return g.mongoClient.WaitForChange(context.Background(), g.namespace+"."+task.GetJobName(), bson.M{
 			mongo.IDENTITY: task.GetID(),
 		}, onChange, onDelete)
 	}
