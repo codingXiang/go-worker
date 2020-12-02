@@ -129,7 +129,7 @@ func NewService(TaskName string, Config *viper.Viper) *ServiceEntity {
 	}
 }
 
-func update(client *mongo.Client, namespace, taskName, identity string, err error) error {
+func update(client *mongo.Client, namespace, taskName, identity string, costTime int64, err error) error {
 	if data, e := client.C(namespace + "." + taskName).First(bson.M{
 		mongo.IDENTITY: identity,
 	}); e != nil {
@@ -140,20 +140,19 @@ func update(client *mongo.Client, namespace, taskName, identity string, err erro
 		if err != nil {
 			tag[go_worker.STATUS] = go_worker.STATUS_FAILED
 		}
+		data.Tag = tag
 		if _, err1 := client.C(namespace+"."+taskName).Update(bson.M{
 			mongo.IDENTITY: identity,
-		}, bson.M{
-			go_worker.UPDATE: bson.M{
-				mongo.TAG: tag,
-			},
-		}); err1 != nil {
+		}, data); err1 != nil {
 			return err1
+		} else {
+			addBuildHistory(client, data, namespace, taskName, costTime, err)
 		}
 	}
 	return err
 }
 
-func addBuildHistory(client *mongo.Client, namespace, taskName, identity string, costTime int64, err error) error {
+func addBuildHistory(client *mongo.Client, data *mongo.RawData, namespace, taskName string, costTime int64, err error) error {
 	build := &ExecHistory{
 		Status:     go_worker.STATUS_COMPLETE,
 		Message:    "執行完成",
@@ -164,19 +163,19 @@ func addBuildHistory(client *mongo.Client, namespace, taskName, identity string,
 		build.Status = go_worker.STATUS_FAILED
 		build.Message = err.Error()
 	}
-	update := bson.M{"$push": bson.M{go_worker.HISTORY: build}}
+	update := bson.M{"$push": bson.M{"raw": build}}
 
-	if _, err1 := client.C(namespace+"."+taskName).Update(bson.M{
-		mongo.IDENTITY: identity,
+	if _, err1 := client.C(namespace+"."+taskName+"."+go_worker.HISTORY).Update(bson.M{
+		mongo.IDENTITY: data.Identity,
 	}, update); err1 != nil {
 		return err1
 	}
+
 	return err
 }
 
 func Callback(g Service, namespace string, identity string, costTime *CostTime, err error) error {
-	err = update(g.GetMongoClient(), namespace, g.GetTaskName(), identity, err)
-	err = addBuildHistory(g.GetMongoClient(), namespace, g.GetTaskName(), identity, costTime.GetMillionSecond(), err)
+	err = update(g.GetMongoClient(), namespace, g.GetTaskName(), identity, costTime.GetMillionSecond(), err)
 	return err
 }
 
