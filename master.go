@@ -145,6 +145,7 @@ type MasterEntity struct {
 	redisPool    *redis.Pool
 	hostname     string
 	namespace    string
+	context      context.Context
 }
 
 type MasterOption struct {
@@ -179,6 +180,7 @@ func NewMaster(pool *redis.Pool, namespace string, option *MasterOption) Master 
 		tasks:        make(map[string]Enqueue),
 		namespace:    namespace,
 		redisPool:    pool,
+		context:      context.Background(),
 	}
 	hostname, err := os.Hostname()
 	if err == nil {
@@ -342,8 +344,10 @@ func (g *MasterEntity) RemoveTaskRecord(id string) error {
 
 func (g *MasterEntity) WaitTask(id string, onChange func(data *mongo.RawData) (bool, error), onDelete func()) error {
 	if task, ok := g.tasks[id]; ok {
-		return g.mongoClient.WaitForChange(context.Background(), g.namespace+"."+task.GetJobName(), bson.M{
-			mongo.IDENTITY: task.GetID(),
+		return g.mongoClient.WaitForChange(g.context, func() (*mongo.RawData, error) {
+			return g.mongoClient.C(g.namespace + "." + task.GetJobName()).First(bson.M{
+				mongo.IDENTITY: task.GetID(),
+			})
 		}, onChange, onDelete)
 	}
 	return errors.New("task " + id + " is not exist")
