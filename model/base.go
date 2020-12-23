@@ -194,16 +194,18 @@ func addBuildHistory(client *mongo.Client, data *mongo.RawData, namespace, taskN
 
 func EnableExecute(g Service, namespace, identity string) bool {
 	info, _ := get(g.GetMongoClient(), namespace, g.GetTaskName(), identity)
-	now := time.Now()
-
 	if info.Spec == "now" {
 		return true
 	}
 	if info.Active {
-		if now.Before(info.DisableTimeRange.Start) && now.After(info.DisableTimeRange.End) {
-			return true
-		} else {
+		if info.DisableTimeRange != nil {
+			now := time.Now()
+			if now.Before(info.DisableTimeRange.Start) && now.After(info.DisableTimeRange.End) {
+				return true
+			}
 			return false
+		} else {
+			return true
 		}
 	} else {
 		return false

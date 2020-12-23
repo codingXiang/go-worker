@@ -33,7 +33,7 @@ type TaskInfo struct {
 	Spec             string `json:"spec"`
 	JobName          string `json:"jobName"`
 	Active           bool   `json:"active"`
-	DisableTimeRange struct {
+	DisableTimeRange *struct {
 		Start time.Time `json:"start"`
 		End   time.Time `json:"end"`
 	} `json:"disableTimeRange"`
