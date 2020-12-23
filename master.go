@@ -220,6 +220,7 @@ func (g *MasterEntity) AddTask(info *TaskInfo) (*TaskInfo, error) {
 	args := enqueue.GetArgs()
 	args[mongo.IDENTITY] = enqueue.GetID()
 	info.MasterID = g.GetID()
+	info.ID = enqueue.GetID()
 	//info := &TaskInfo{
 	//	MasterID: g.GetID(),
 	//	ID:       enqueue.GetID(),
