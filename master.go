@@ -158,7 +158,7 @@ type MasterOption struct {
 type Master interface {
 	Init() Master
 	GetID() string
-	AddTask(Spec string, JobName string, Args map[string]interface{}) (*TaskInfo, error)
+	AddTask(info *TaskInfo) (*TaskInfo, error)
 	GetEnqueues() map[string]Enqueue
 	GetEnqueue(id string) (Enqueue, error)
 	GetWorkerHeartbeats() ([]*work.WorkerPoolHeartbeat, error)
@@ -214,21 +214,22 @@ func (g *MasterEntity) GetID() string {
 }
 
 //AddTask 加入任務
-func (g *MasterEntity) AddTask(Spec string, JobName string, Args map[string]interface{}) (*TaskInfo, error) {
-	enqueue := NewEnqueue(g.core, Spec, JobName, Args)
+func (g *MasterEntity) AddTask(info *TaskInfo) (*TaskInfo, error) {
+	enqueue := NewEnqueue(g.core, info.Spec, info.JobName, info.Args)
 	g.tasks[enqueue.GetID()] = enqueue
 	args := enqueue.GetArgs()
 	args[mongo.IDENTITY] = enqueue.GetID()
-	info := &TaskInfo{
-		MasterID: g.GetID(),
-		ID:       enqueue.GetID(),
-		Spec:     enqueue.GetSpec(),
-		JobName:  enqueue.GetJobName(),
-		Args:     args,
-	}
+	info.MasterID = g.GetID()
+	//info := &TaskInfo{
+	//	MasterID: g.GetID(),
+	//	ID:       enqueue.GetID(),
+	//	Spec:     enqueue.GetSpec(),
+	//	JobName:  enqueue.GetJobName(),
+	//	Args:     args,
+	//}
 	return info, g.mongoClient.C(g.namespace + "." + info.JobName).Insert(mongo.NewRawData(info.ID, bson.M{
 		NAMESPACE: g.namespace,
-		JOB_NAME:  JobName,
+		JOB_NAME:  info.JobName,
 		STATUS:    STATUS_PENDING,
 	}, info))
 }

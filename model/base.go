@@ -129,6 +129,25 @@ func NewService(TaskName string, Config *viper.Viper) *ServiceEntity {
 	}
 }
 
+func get(client *mongo.Client, namespace, taskName, identity string) (*go_worker.TaskInfo, error) {
+	if data, err := client.C(namespace + "." + taskName).First(bson.M{
+		mongo.IDENTITY: identity,
+	}); err != nil {
+		return nil, err
+	} else {
+		tmp, err := json.Marshal(data.Raw)
+		if err != nil {
+			return nil, err
+		}
+		result := new(go_worker.TaskInfo)
+		err = json.Unmarshal(tmp, &result)
+		if err != nil {
+			return nil, err
+		}
+		return result, nil
+	}
+}
+
 func update(client *mongo.Client, namespace, taskName, identity string, costTime int64, err error) error {
 	if data, e := client.C(namespace + "." + taskName).First(bson.M{
 		mongo.IDENTITY: identity,
@@ -171,6 +190,24 @@ func addBuildHistory(client *mongo.Client, data *mongo.RawData, namespace, taskN
 	}
 
 	return err
+}
+
+func EnableExecute(g Service, namespace, identity string) bool {
+	info, _ := get(g.GetMongoClient(), namespace, g.GetTaskName(), identity)
+	now := time.Now()
+
+	if info.Spec == "now" {
+		return true
+	}
+	if info.Active {
+		if now.Before(info.DisableTimeRange.Start) && now.After(info.DisableTimeRange.End) {
+			return true
+		} else {
+			return false
+		}
+	} else {
+		return false
+	}
 }
 
 func Callback(g Service, namespace string, identity string, costTime *CostTime, err error) error {

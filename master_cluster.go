@@ -12,6 +12,7 @@ import (
 	"log"
 	"strings"
 	"sync"
+	"time"
 )
 
 const (
@@ -27,11 +28,16 @@ type ETCDAuth struct {
 }
 
 type TaskInfo struct {
-	MasterID string                 `json:"masterId"`
-	ID       string                 `json:"id"`
-	Spec     string                 `json:"spec"`
-	JobName  string                 `json:"jobName"`
-	Args     map[string]interface{} `json:"args"`
+	MasterID         string `json:"masterId"`
+	ID               string `json:"id"`
+	Spec             string `json:"spec"`
+	JobName          string `json:"jobName"`
+	Active           bool   `json:"active"`
+	DisableTimeRange struct {
+		Start time.Time `json:"start"`
+		End   time.Time `json:"end"`
+	} `json:"disableTimeRange"`
+	Args map[string]interface{} `json:"args"`
 }
 
 type MasterClusterEntity struct {
@@ -231,7 +237,7 @@ func (g *MasterClusterEntity) handleRetiredMasterTasks(key string) error {
 				return err
 			}
 			if task.MasterID == key {
-				info, err := g.AddTask(task.Spec, task.JobName, task.Args)
+				info, err := g.AddTask(task)
 				if err != nil {
 					return err
 				}
@@ -294,10 +300,10 @@ func (g *MasterClusterEntity) WatchTask() {
 }
 
 //AddTask 新增任務
-func (g *MasterClusterEntity) AddTask(Spec string, JobName string, Args map[string]interface{}) (*TaskInfo, error) {
-	//设置租约时间
+func (g *MasterClusterEntity) AddTask(info *TaskInfo) (*TaskInfo, error) {
+	var err error
 	resp, err := g.client.Grant(context.Background(), 5)
-	info, err := g.MasterEntity.AddTask(Spec, JobName, Args)
+	info, err = g.MasterEntity.AddTask(info)
 	if err != nil {
 		return nil, err
 	}
