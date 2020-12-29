@@ -291,7 +291,7 @@ func (g *MasterClusterEntity) WatchTask() {
 			switch ev.Type {
 			case mvccpb.DELETE: //删除
 				log.Println("task ", key, " has been removed")
-				g.MasterEntity.RemoveTask(key)
+				go g.MasterEntity.RemoveTaskRecord(key)
 				break
 			}
 		}
@@ -356,9 +356,9 @@ func (g *MasterClusterEntity) ExecTask(id string) error {
 
 //RemoveTask 移除任務
 func (g *MasterClusterEntity) RemoveTask(id string) error {
-	if err := g.MasterEntity.RemoveTask(id); err != nil {
-		return err
-	}
+	//if err := g.MasterEntity.RemoveTask(id); err != nil {
+	//	return err
+	//}
 	_, err := g.client.Delete(context.TODO(), g.getTaskPathWithCustomPath(id))
 	return err
 }
