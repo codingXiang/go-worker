@@ -307,15 +307,12 @@ func (g *MasterEntity) ExecTask(id string) error {
 	if task, ok := g.tasks[id]; ok {
 		if task.GetSpec() == Now {
 			task.Run()
-			return g.updateTask(task, STATUS_RUNNING)
+			if err := g.updateTask(task, STATUS_RUNNING); err != nil {
+				return err
+			}
+			return g.RemoveTask(task.GetID())
 		} else {
 			task.Cron.Start()
-			//if id, err := g.cron.AddJob(task.GetSpec(), task); err == nil {
-			//	task.SetEntryID(id)
-			//} else {
-			//	return err
-			//}
-			//g.cron.Start()
 			return g.updateTask(task, STATUS_SCHEDULING)
 		}
 	} else {
@@ -326,14 +323,6 @@ func (g *MasterEntity) ExecTask(id string) error {
 //移除排程
 func (g *MasterEntity) RemoveTask(id string) error {
 	if task, ok := g.tasks[id]; ok {
-		//if task.GetSpec() != Now {
-		//	if EntryID := task.GetEntryID(); EntryID != 0 {
-		//		task.Cron.Stop()
-		//		defer delete(g.tasks, id)
-		//	} else {
-		//		return errors.New("task " + id + " is not execute")
-		//	}
-		//}
 		task.Cron.Stop()
 		delete(g.tasks, id)
 		task = nil

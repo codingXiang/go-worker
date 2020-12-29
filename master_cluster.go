@@ -321,44 +321,13 @@ func (g *MasterClusterEntity) AddTask(info *TaskInfo) (*TaskInfo, error) {
 
 	return info, nil
 }
+
 func (g *MasterClusterEntity) ExecTask(id string) error {
-	//g.lock.Lock()
-	//defer g.lock.Unlock()
-	//if err := g.MasterEntity.ExecTask(id); err == nil {
-	//	if g.tasks[id].GetSpec() == "now" {
-	//		g.MasterEntity.updateTask()
-	//		return g.RemoveTask(id)
-	//	} else {
-	//		return nil
-	//	}
-	//} else {
-	//	return err
-	//}
-	if task, ok := g.tasks[id]; ok {
-		if task.GetSpec() == "now" {
-			task.Run()
-			g.updateTask(task, STATUS_RUNNING)
-			return g.RemoveTask(task.GetID())
-		} else {
-			task.Cron.Start()
-			//if id, err := g.cron.AddJob(task.GetSpec(), task); err == nil {
-			//	task.SetEntryID(id)
-			//} else {
-			//	return err
-			//}
-			//g.cron.Start()
-			return g.updateTask(task, STATUS_SCHEDULING)
-		}
-	} else {
-		return errors.New("task " + id + " is not exist")
-	}
+	return g.MasterEntity.ExecTask(id)
 }
 
 //RemoveTask 移除任務
 func (g *MasterClusterEntity) RemoveTask(id string) error {
-	//if err := g.MasterEntity.RemoveTask(id); err != nil {
-	//	return err
-	//}
 	_, err := g.client.Delete(context.TODO(), g.getTaskPathWithCustomPath(id))
 	return err
 }
