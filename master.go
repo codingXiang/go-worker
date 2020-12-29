@@ -348,10 +348,10 @@ func (g *MasterEntity) RemoveTaskRecord(id string) error {
 
 		task.Cron.Stop()
 		delete(g.tasks, id)
-		task = nil
 		if err := g.updateTask(task, STATUS_REMOVE); err != nil {
 			return err
 		}
+		task = nil
 		return nil
 	} else {
 		return errors.New("task " + id + " is not exist")
