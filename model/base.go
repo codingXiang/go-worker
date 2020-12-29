@@ -161,10 +161,10 @@ func EnableExecute(g Service, namespace, identity string) bool {
 	if info.Active {
 		if info.DisableTimeRange != nil {
 			now := time.Now().In(loc)
-			if now.Before(info.DisableTimeRange.Start.In(loc)) && now.After(info.DisableTimeRange.End.In(loc)) {
-				return true
+			if now.After(info.DisableTimeRange.Start.In(loc)) && now.Before(info.DisableTimeRange.End.In(loc)) {
+				return false
 			}
-			return false
+			return true
 		} else {
 			return true
 		}
