@@ -11,6 +11,7 @@ import (
 	uuid "github.com/satori/go.uuid"
 	"gopkg.in/mgo.v2/bson"
 	"os"
+	"time"
 )
 
 const (
@@ -34,43 +35,37 @@ const (
 
 //EnqueueEntity 實例
 type EnqueueEntity struct {
-	ID      string                 `json:"id"`
-	Engine  *work.Enqueuer         `json:"-"`
-	Spec    string                 `json:"Spec"`
-	EntryID cronV3.EntryID         `json:"EntryID"`
-	JobName string                 `json:"JobName"`
-	Args    map[string]interface{} `json:"Args"`
-}
-
-//Enqueue 封裝 EnqueueEntity 方法的 interface
-type Enqueue interface {
-	GetInstance() *EnqueueEntity
-	GetID() string
-	GetEntryID() cronV3.EntryID
-	SetEntryID(id cronV3.EntryID) Enqueue
-	GetSpec() string
-	SetSpec(string) Enqueue
-	GetJobName() string
-	SetJobName(string) Enqueue
-	GetArgs() map[string]interface{}
-	AddArgs(key string, value interface{}) Enqueue
-	RemoveArgs(key string) Enqueue
-	Do() (*work.Job, error)
-	Run()
+	ID       string                 `json:"id"`
+	Location *time.Location         `json:"-"`
+	Cron     *cronV3.Cron           `json:"-"`
+	Engine   *work.Enqueuer         `json:"-"`
+	Spec     string                 `json:"Spec"`
+	EntryID  cronV3.EntryID         `json:"EntryID"`
+	JobName  string                 `json:"JobName"`
+	Args     map[string]interface{} `json:"Args"`
 }
 
 //NewEnqueue 建立一個新的 Enqueue instance
-func NewEnqueue(Engine *work.Enqueuer, Spec string, JobName string, Args map[string]interface{}) Enqueue {
+func NewEnqueue(Engine *work.Enqueuer, location *time.Location, Spec, JobName string, Args map[string]interface{}) *EnqueueEntity {
 	if Args == nil {
 		Args = make(map[string]interface{})
 	}
-	return &EnqueueEntity{
+
+	e := &EnqueueEntity{
 		ID:      uuid.NewV4().String(),
 		Engine:  Engine,
 		Spec:    Spec,
 		JobName: JobName,
 		Args:    Args,
 	}
+
+	options := []cronV3.Option{cronV3.WithSeconds()}
+	if location != nil {
+		e.Location = location
+		options = append(options, cronV3.WithLocation(e.Location))
+	}
+	e.Cron = cronV3.New(options...)
+	return e
 }
 
 func (g *EnqueueEntity) GetInstance() *EnqueueEntity {
@@ -85,7 +80,7 @@ func (g *EnqueueEntity) GetEntryID() cronV3.EntryID {
 	return g.EntryID
 }
 
-func (g *EnqueueEntity) SetEntryID(id cronV3.EntryID) Enqueue {
+func (g *EnqueueEntity) SetEntryID(id cronV3.EntryID) *EnqueueEntity {
 	g.EntryID = id
 	return g
 }
@@ -94,7 +89,7 @@ func (g *EnqueueEntity) GetSpec() string {
 	return g.Spec
 }
 
-func (g *EnqueueEntity) SetSpec(Spec string) Enqueue {
+func (g *EnqueueEntity) SetSpec(Spec string) *EnqueueEntity {
 	g.Spec = Spec
 	return g
 }
@@ -103,7 +98,7 @@ func (g *EnqueueEntity) GetJobName() string {
 	return g.JobName
 }
 
-func (g *EnqueueEntity) SetJobName(JobName string) Enqueue {
+func (g *EnqueueEntity) SetJobName(JobName string) *EnqueueEntity {
 	g.JobName = JobName
 	return g
 }
@@ -112,12 +107,12 @@ func (g *EnqueueEntity) GetArgs() map[string]interface{} {
 	return g.Args
 }
 
-func (g *EnqueueEntity) AddArgs(key string, value interface{}) Enqueue {
+func (g *EnqueueEntity) AddArgs(key string, value interface{}) *EnqueueEntity {
 	g.Args[key] = value
 	return g
 }
 
-func (g *EnqueueEntity) RemoveArgs(key string) Enqueue {
+func (g *EnqueueEntity) RemoveArgs(key string) *EnqueueEntity {
 	delete(g.Args, key)
 	return g
 }
@@ -136,12 +131,12 @@ func (g *EnqueueEntity) Run() {
 
 //Master 實例
 type MasterEntity struct {
-	id           string
-	cron         *cronV3.Cron
+	id string
+	//cron         *cronV3.Cron
 	core         *work.Enqueuer
 	workerClient *work.Client
 	mongoClient  *mongo.Client
-	tasks        map[string]Enqueue
+	tasks        map[string]*EnqueueEntity
 	redisPool    *redis.Pool
 	hostname     string
 	namespace    string
@@ -159,8 +154,8 @@ type Master interface {
 	Init() Master
 	GetID() string
 	AddTask(info *TaskInfo) (*TaskInfo, error)
-	GetEnqueues() map[string]Enqueue
-	GetEnqueue(id string) (Enqueue, error)
+	GetEnqueues() map[string]*EnqueueEntity
+	GetEnqueue(id string) (*EnqueueEntity, error)
 	GetWorkerHeartbeats() ([]*work.WorkerPoolHeartbeat, error)
 	GetBusyWorkers() ([]*work.WorkerObservation, error)
 	GetQueues() ([]*work.Queue, error)
@@ -173,11 +168,11 @@ type Master interface {
 //NewMaster 建立 Master 實例
 func NewMaster(pool *redis.Pool, namespace string, option *MasterOption) Master {
 	master := &MasterEntity{
-		id:           uuid.NewV4().String(),
-		cron:         cronV3.New(cronV3.WithSeconds()),
+		id: uuid.NewV4().String(),
+		//cron:         cronV3.New(cronV3.WithSeconds()),
 		core:         work.NewEnqueuer(namespace, pool),
 		workerClient: work.NewClient(namespace, pool),
-		tasks:        make(map[string]Enqueue),
+		tasks:        make(map[string]*EnqueueEntity),
 		namespace:    namespace,
 		redisPool:    pool,
 		context:      context.Background(),
@@ -215,12 +210,33 @@ func (g *MasterEntity) GetID() string {
 
 //AddTask 加入任務
 func (g *MasterEntity) AddTask(info *TaskInfo) (*TaskInfo, error) {
-	enqueue := NewEnqueue(g.core, info.Spec, info.JobName, info.Args)
-	g.tasks[enqueue.GetID()] = enqueue
+	if info.TimeZone == "" {
+		info.TimeZone = "UTC"
+	}
+
+	var enqueue *EnqueueEntity
+
+	if loc, err := time.LoadLocation(info.TimeZone); err == nil {
+		enqueue = NewEnqueue(g.core, loc, info.Spec, info.JobName, info.Args)
+	} else {
+		NewEnqueue(g.core, nil, info.Spec, info.JobName, info.Args)
+	}
+
 	args := enqueue.GetArgs()
 	args[mongo.IDENTITY] = enqueue.GetID()
 	info.MasterID = g.GetID()
 	info.ID = enqueue.GetID()
+
+	if info.Spec != Now {
+		if id, err := enqueue.Cron.AddJob(info.Spec, enqueue); err == nil {
+			enqueue.SetEntryID(id)
+		} else {
+			return nil, err
+		}
+	}
+
+	g.tasks[enqueue.GetID()] = enqueue
+
 	//info := &TaskInfo{
 	//	MasterID: g.GetID(),
 	//	ID:       enqueue.GetID(),
@@ -235,11 +251,11 @@ func (g *MasterEntity) AddTask(info *TaskInfo) (*TaskInfo, error) {
 	}, info))
 }
 
-func (g *MasterEntity) GetEnqueues() map[string]Enqueue {
+func (g *MasterEntity) GetEnqueues() map[string]*EnqueueEntity {
 	return g.tasks
 }
 
-func (g *MasterEntity) GetEnqueue(id string) (Enqueue, error) {
+func (g *MasterEntity) GetEnqueue(id string) (*EnqueueEntity, error) {
 	if enqueue, ok := g.tasks[id]; ok {
 		return enqueue, nil
 	} else {
@@ -271,7 +287,7 @@ func (g *MasterEntity) GetBusyWorkers() ([]*work.WorkerObservation, error) {
 	return busyObservations, nil
 }
 
-func (g *MasterEntity) updateTask(task Enqueue, status string) error {
+func (g *MasterEntity) updateTask(task *EnqueueEntity, status string) error {
 	_, err := g.mongoClient.C(g.namespace+"."+task.GetJobName()).Update(bson.M{
 		mongo.IDENTITY: task.GetID(),
 	}, bson.M{
@@ -293,12 +309,13 @@ func (g *MasterEntity) ExecTask(id string) error {
 			task.Run()
 			return g.updateTask(task, STATUS_RUNNING)
 		} else {
-			if id, err := g.cron.AddJob(task.GetSpec(), task); err == nil {
-				task.SetEntryID(id)
-			} else {
-				return err
-			}
-			g.cron.Start()
+			task.Cron.Start()
+			//if id, err := g.cron.AddJob(task.GetSpec(), task); err == nil {
+			//	task.SetEntryID(id)
+			//} else {
+			//	return err
+			//}
+			//g.cron.Start()
 			return g.updateTask(task, STATUS_SCHEDULING)
 		}
 	} else {
@@ -309,15 +326,17 @@ func (g *MasterEntity) ExecTask(id string) error {
 //移除排程
 func (g *MasterEntity) RemoveTask(id string) error {
 	if task, ok := g.tasks[id]; ok {
-		if task.GetSpec() != Now {
-			if EntryID := task.GetEntryID(); EntryID != 0 {
-				g.cron.Remove(EntryID)
-				g.cron.Start()
-			} else {
-				return errors.New("task " + id + " is not execute")
-			}
-		}
+		//if task.GetSpec() != Now {
+		//	if EntryID := task.GetEntryID(); EntryID != 0 {
+		//		task.Cron.Stop()
+		//		defer delete(g.tasks, id)
+		//	} else {
+		//		return errors.New("task " + id + " is not execute")
+		//	}
+		//}
+		task.Cron.Stop()
 		delete(g.tasks, id)
+		task = nil
 		return nil
 	} else {
 		return errors.New("task " + id + " is not exist")
@@ -326,18 +345,24 @@ func (g *MasterEntity) RemoveTask(id string) error {
 
 func (g *MasterEntity) RemoveTaskRecord(id string) error {
 	if task, ok := g.tasks[id]; ok {
-		if task.GetSpec() != Now {
-			if EntryID := task.GetEntryID(); EntryID != 0 {
-				g.cron.Remove(EntryID)
-				g.cron.Start()
-			} else {
-				return errors.New("task " + id + " is not execute")
-			}
-		}
+		//if task.GetSpec() != Now {
+		//
+		//	if EntryID := task.GetEntryID(); EntryID != 0 {
+		//		task.Cron.Stop()
+		//		defer delete(g.tasks, id)
+		//		//g.cron.Remove(EntryID)
+		//		//g.cron.Start()
+		//	} else {
+		//		return errors.New("task " + id + " is not execute")
+		//	}
+		//}
+
+		task.Cron.Stop()
+		delete(g.tasks, id)
+		task = nil
 		if err := g.updateTask(task, STATUS_REMOVE); err != nil {
 			return err
 		}
-		delete(g.tasks, id)
 		return nil
 	} else {
 		return errors.New("task " + id + " is not exist")

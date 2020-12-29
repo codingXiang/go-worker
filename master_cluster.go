@@ -30,6 +30,7 @@ type ETCDAuth struct {
 type TaskInfo struct {
 	MasterID         string `json:"masterId"`
 	ID               string `json:"id"`
+	TimeZone         string `json:"timezone"`
 	Spec             string `json:"spec"`
 	JobName          string `json:"jobName"`
 	Active           bool   `json:"active"`
@@ -339,12 +340,13 @@ func (g *MasterClusterEntity) ExecTask(id string) error {
 			g.updateTask(task, STATUS_RUNNING)
 			return g.RemoveTask(task.GetID())
 		} else {
-			if id, err := g.cron.AddJob(task.GetSpec(), task); err == nil {
-				task.SetEntryID(id)
-			} else {
-				return err
-			}
-			g.cron.Start()
+			task.Cron.Start()
+			//if id, err := g.cron.AddJob(task.GetSpec(), task); err == nil {
+			//	task.SetEntryID(id)
+			//} else {
+			//	return err
+			//}
+			//g.cron.Start()
 			return g.updateTask(task, STATUS_SCHEDULING)
 		}
 	} else {
@@ -354,6 +356,9 @@ func (g *MasterClusterEntity) ExecTask(id string) error {
 
 //RemoveTask 移除任務
 func (g *MasterClusterEntity) RemoveTask(id string) error {
+	if err := g.MasterEntity.RemoveTask(id); err != nil {
+		return err
+	}
 	_, err := g.client.Delete(context.TODO(), g.getTaskPathWithCustomPath(id))
 	return err
 }

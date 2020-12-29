@@ -34,47 +34,6 @@ func (p Status) String() string {
 	}
 }
 
-type CallbackSender struct {
-	CallbackReceiver
-	Namespace string `json:"namespace"`
-	Identity  string `json:"identity"`
-}
-
-func (s *CallbackSender) InterfaceToObject(in interface{}) (*CallbackSender, error) {
-	var err error
-	args, err := json.Marshal(in)
-	if err != nil {
-		return nil, err
-	}
-	err = json.Unmarshal(args, &s)
-	if err != nil {
-		return nil, err
-	}
-	return s, nil
-}
-
-type CallbackReceiver struct {
-	IdentityID string                 `json:"identityId"`
-	Status     string                 `json:"status"`
-	IsComplete bool                   `json:"isComplete"`
-	Body       string                 `json:"body"`
-	ErrMsg     string                 `json:"errMsg"`
-	Args       map[string]interface{} `json:"args"`
-}
-
-func (s *CallbackReceiver) InterfaceToObject(in interface{}) (*CallbackReceiver, error) {
-	var err error
-	args, err := json.Marshal(in)
-	if err != nil {
-		return nil, err
-	}
-	err = json.Unmarshal(args, &s)
-	if err != nil {
-		return nil, err
-	}
-	return s, nil
-}
-
 type JobInfo struct {
 	Name   string
 	Job    go_worker.Job
@@ -197,10 +156,12 @@ func EnableExecute(g Service, namespace, identity string) bool {
 	if info.Spec == "now" {
 		return true
 	}
+	loc, _ := time.LoadLocation(info.TimeZone)
+
 	if info.Active {
 		if info.DisableTimeRange != nil {
-			now := time.Now()
-			if now.Before(info.DisableTimeRange.Start) && now.After(info.DisableTimeRange.End) {
+			now := time.Now().In(loc)
+			if now.Before(info.DisableTimeRange.Start.In(loc)) && now.After(info.DisableTimeRange.End.In(loc)) {
 				return true
 			}
 			return false
